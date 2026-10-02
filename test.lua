@@ -1,456 +1,397 @@
--- Script Path: game:GetService("Players")["4f8khx"].PlayerGui.EliminationModeSongUI.CurrentRoundFrame.EliminationSongUIController
--- Took 0s to decompile.
--- Executor: Real (2.7.3)
+-- UILib: small Roblox UI library (client-side ModuleScript)
+-- Put in ReplicatedStorage as "UILib". Require from a LocalScript.
 
---[[
-__________                   __               __    __________              .__
-\______   \_______  ____    |__| ____   _____/  |_  \______   \ ____ _____  |  |
- |     ___/\_  __ \/  _ \   |  |/ __ \_/ ___\   __\  |       _// __ \\__  \ |  |
- |    |     |  | \(  <_> )  |  \  ___/\  \___|  |    |    |   \  ___/ / __ \|  |__
- |____|     |__|   \____/\__|  |\___  >\___  >__|    |____|_  /\___  >____  /____/
-                        \______|    \/     \/               \/     \/     \/
-]]
---                           Project Real  |  Luau Decompiler
---                                   Made by @zinvera
---File: Players.4f8khx.PlayerGui.EliminationModeSongUI.CurrentRoundFrame.EliminationSongUIController
---                               Dumped in 0.00821 seconds
---                         Bytecode version 12  |  17 functions
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local SoundService = game:GetService("SoundService")
-local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-local SongGuessEvents = ReplicatedStorage:WaitForChild("SongGuessEvents")
-local ShowEliminationSongUI = SongGuessEvents:WaitForChild("ShowEliminationSongUI")
-local UpdateLivesUi = SongGuessEvents:WaitForChild("UpdateLivesUi")
-local EliminationModeSongUI = PlayerGui:WaitForChild("EliminationModeSongUI")
-local CurrentRoundFrame = EliminationModeSongUI:WaitForChild("CurrentRoundFrame")
-local VoteSongFrame = EliminationModeSongUI:WaitForChild("VoteSongFrame")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
 
-local function createSound(p1, p2) -- Line: 30 -- upvalues: SoundService (val)
-    local Sound = Instance.new("Sound")
-    Sound.SoundId = p1
-    Sound.Volume = p2 or 1
-    Sound.Parent = SoundService
-    return Sound
+local Library = {}
+Library.__index = Library
+
+local DefaultTheme = {
+	Background = Color3.fromRGB(25, 25, 30),
+	Surface = Color3.fromRGB(38, 38, 46),
+	SurfaceHover = Color3.fromRGB(50, 50, 60),
+	Accent = Color3.fromRGB(88, 130, 255),
+	Text = Color3.fromRGB(235, 235, 240),
+	SubText = Color3.fromRGB(150, 150, 160),
+	Font = Enum.Font.GothamMedium,
+}
+
+local TWEEN = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+-- helpers ---------------------------------------------------------------
+
+local function create(class, props, parent)
+	local inst = Instance.new(class)
+	for key, value in pairs(props) do
+		inst[key] = value
+	end
+	inst.Parent = parent
+	return inst
 end
 
-local Sound = Instance.new("Sound")
-Sound.SoundId = "rbxassetid://123796710194563"
-Sound.Volume = 1
-Sound.Parent = SoundService
-local Sound_2 = Instance.new("Sound")
-Sound_2.SoundId = "rbxassetid://123796710194563"
-Sound_2.Volume = 1
-Sound_2.Parent = SoundService
-local Sound_3 = Instance.new("Sound")
-Sound_3.SoundId = "rbxassetid://7218169592"
-Sound_3.Volume = 1
-Sound_3.Parent = SoundService
-local Sound_4 = Instance.new("Sound")
-Sound_4.SoundId = "rbxassetid://138567614125924"
-Sound_4.Volume = 1
-Sound_4.Parent = SoundService
-local HeartImage1 = VoteSongFrame:FindFirstChild("HeartImage1")
-local HeartImage2 = VoteSongFrame:FindFirstChild("HeartImage2")
-local HeartImage3 = VoteSongFrame:FindFirstChild("HeartImage3")
-local u87 = {}
-u87[1] = HeartImage1
-u87[2] = HeartImage2
-u87[3] = HeartImage3
-local u91 = {}
-for i, v in ipairs(u87) do
-    if v then
-        u91[v] = v.Size
-    end
-end
-local RoundTextLabel = CurrentRoundFrame:FindFirstChild("RoundTextLabel")
-local ProgressBarFrame = CurrentRoundFrame:FindFirstChild("ProgressBarFrame")
-local ProgressBar = ProgressBarFrame
-if ProgressBar then
-    ProgressBar = ProgressBarFrame:FindFirstChild("ProgressBar")
-end
-local Container = CurrentRoundFrame:FindFirstChild("Container")
-local SubmitAnswerEliminationMode = SongGuessEvents:WaitForChild("SubmitAnswerEliminationMode")
-local u129 = false
-local u130 = 3
-local Position = CurrentRoundFrame.Position
-local Position_2 = VoteSongFrame.Position
-local u142 = UDim2.new(Position.X.Scale, Position.X.Offset, -0.3, 0)
-local u150 = UDim2.new(Position_2.X.Scale, Position_2.X.Offset, 1.3, 0)
-CurrentRoundFrame.Position = u142
-VoteSongFrame.Position = u150
-CurrentRoundFrame.Visible = false
-VoteSongFrame.Visible = false
-local u157 = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local u162 = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-local u167 = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local u172 = TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
-local u177 = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local u182 = TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-local u187 = Color3.fromRGB(85, 255, 127)
-local u192 = Color3.fromRGB(255, 223, 63)
-local u197 = Color3.fromRGB(255, 79, 79)
-local u198 = nil
-local u199 = nil
-local u200 = {}
-for i2, i3 in ipairs(VoteSongFrame:GetChildren()) do
-    if i3:IsA("ImageButton") then
-        table.insert(u200, i3)
-    end
+local function round(parent, radius)
+	return create("UICorner", { CornerRadius = UDim.new(0, radius or 6) }, parent)
 end
 
-local function updateHeartsDisplay(p1, p2) -- Line: 112
-    -- upvalues: u130 (ref), u87 (val), u91 (val), TweenService (val), u182 (val)
-    local v1, v2, v3
-    u130 = math.clamp(p1, 0, 3)
-    local v4 = p2
-    for i, v in ipairs(u87) do
-        if v then
-            local Size = u91[v]
-            if not Size then
-                Size = v.Size
-            end
-            if i <= u130 then
-                v.Visible = true
-                v.Size = Size
-                v.ImageTransparency = 0
-            elseif not v.Visible or not v4 then
-                v.Visible = false
-            else
-                v3 = TweenService
-                v1 = u182
-                v2 = {ImageTransparency = 1, Size = UDim2.new(0, 0, 0, 0)}
-                v3 = v3:Create(v, v1, v2)
-                v3:Play()
-                v3.Completed:Connect(function() -- Line: 130 -- upvalues: v (val), Size (val)
-                    v.Visible = false
-                    v.Size = Size
-                end)
-            end
-        end
-    end
+local function tween(inst, goal)
+	TweenService:Create(inst, TWEEN, goal):Play()
 end
 
-UpdateLivesUi.OnClientEvent:Connect(function(p1) -- Line: 142 -- upvalues: updateHeartsDisplay (val)
-    updateHeartsDisplay(p1, true)
-end)
-
-local function getSpectrumBars() -- Line: 149 -- upvalues: Container (val)
-    local v1 = {}
-    if not Container then
-        return v1
-    end
-    for i, v in ipairs(Container:GetChildren()) do
-        if v:IsA("Frame") then
-            table.insert(v1, v)
-        end
-    end
-    table.sort(v1, function(p1, p2) -- Line: 155
-        local v1 = p1.LayoutOrder < p2.LayoutOrder
-        return v1
-    end)
-    return v1
+local function isPointer(input)
+	return input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch
 end
 
-local function stopSpectrum() -- Line: 159 -- upvalues: u199 (ref)
-    if u199 then
-        u199:Disconnect()
-        u199 = nil
-    end
+local function isMove(input)
+	return input.UserInputType == Enum.UserInputType.MouseMovement
+		or input.UserInputType == Enum.UserInputType.Touch
 end
 
-local function startSpectrum() -- Line: 166
-    -- upvalues: u199 (ref), getSpectrumBars (val), RunService (val), SoundService (val)
-    if u199 then
-        u199:Disconnect()
-        u199 = nil
-    end
-    local u7 = getSpectrumBars()
-    if #u7 == 0 then
-        return
-    end
-    local v1 = RunService
-    u199 = v1.RenderStepped:Connect(function(p1) -- Line: 171 -- upvalues: SoundService (upval), u7 (val)
-        local Size, v1, v2, v3, v4, v5, v6, v7, v8
-        local v9 = nil
-        for i, v in ipairs(SoundService:GetChildren()) do
-            if v:IsA("Sound") and v.IsPlaying then
-                v9 = v
-                break
-            end
-        end
-        if not v9 then
-            for i4, j in ipairs(u7) do
-                j.Size = UDim2.new(j.Size.X.Scale, j.Size.X.Offset, 0.25, 0)
-            end
-            return
-        end
-        local v10 = v9.PlaybackLoudness / 450
-        local v11 = math.clamp(v10, 0, 1)
-        v10 = #u7
-        local v12 = p1
-        for i2, i3 in ipairs(u7) do
-            v3 = (os.clock()) * 12
-            v2 = v3 + i2
-            v8 = (math.sin(v2)) * 0.15
-            v2 = v11 * 1.1 + v8
-            v1 = math.clamp(v2, 0.05, 1)
-            Size = i3.Size
-            v5 = UDim2.new(Size.X.Scale, Size.X.Offset, v1, 0)
-            v7 = v12 * 15
-            v6 = math.min(1, v7)
-            i3.Size = Size:Lerp(v5, v6)
-            if not (1 < v10) then
-                v3 = 0
-            else
-                v3 = (i2 - 1) / (v10 - 1)
-                if not v3 then
-                    v3 = 0
-                end
-            end
-            v4 = (os.clock() * 0.25 + v3) % 1
-            i3.BackgroundColor3 = Color3.fromHSV(v4, 1, 1)
-        end
-    end)
+-- window ----------------------------------------------------------------
+
+function Library.new(title, options)
+	options = options or {}
+	local self = setmetatable({}, Library)
+	self.Theme = table.clone(DefaultTheme)
+	self._connections = {}
+	local theme = self.Theme
+
+	self.Gui = create("ScreenGui", {
+		Name = "UILib",
+		ResetOnSpawn = false,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+	}, Players.LocalPlayer:WaitForChild("PlayerGui"))
+
+	self.Main = create("Frame", {
+		Name = "Main",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = options.Size or UDim2.fromOffset(320, 380),
+		BackgroundColor3 = theme.Background,
+		BorderSizePixel = 0,
+	}, self.Gui)
+	round(self.Main, 10)
+
+	local bar = create("Frame", {
+		Name = "TitleBar",
+		Size = UDim2.new(1, 0, 0, 36),
+		BackgroundTransparency = 1,
+	}, self.Main)
+
+	create("TextLabel", {
+		Size = UDim2.new(1, -16, 1, 0),
+		Position = UDim2.fromOffset(12, 0),
+		BackgroundTransparency = 1,
+		Text = title or "Window",
+		TextColor3 = theme.Text,
+		Font = theme.Font,
+		TextSize = 16,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, bar)
+
+	self.Content = create("ScrollingFrame", {
+		Name = "Content",
+		Position = UDim2.fromOffset(8, 40),
+		Size = UDim2.new(1, -16, 1, -48),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 3,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	}, self.Main)
+	create("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, self.Content)
+
+	self.Notifications = create("Frame", {
+		Name = "Notifications",
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -16, 1, -16),
+		Size = UDim2.fromOffset(260, 400),
+		BackgroundTransparency = 1,
+	}, self.Gui)
+	create("UIListLayout", {
+		Padding = UDim.new(0, 6),
+		VerticalAlignment = Enum.VerticalAlignment.Bottom,
+		HorizontalAlignment = Enum.HorizontalAlignment.Right,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}, self.Notifications)
+
+	-- dragging
+	local dragging, dragStart, startPos = false, nil, nil
+	table.insert(self._connections, bar.InputBegan:Connect(function(input)
+		if isPointer(input) then
+			dragging = true
+			dragStart = input.Position
+			startPos = self.Main.Position
+			local changed
+			changed = input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+					changed:Disconnect()
+				end
+			end)
+		end
+	end))
+	table.insert(self._connections, UserInputService.InputChanged:Connect(function(input)
+		if dragging and isMove(input) then
+			local delta = input.Position - dragStart
+			self.Main.Position = UDim2.new(
+				startPos.X.Scale, startPos.X.Offset + delta.X,
+				startPos.Y.Scale, startPos.Y.Offset + delta.Y
+			)
+		end
+	end))
+
+	-- optional toggle key
+	if options.ToggleKey then
+		table.insert(self._connections, UserInputService.InputBegan:Connect(function(input, processed)
+			if not processed and input.KeyCode == options.ToggleKey then
+				self.Main.Visible = not self.Main.Visible
+			end
+		end))
+	end
+
+	return self
 end
 
-local u238 = Color3.fromRGB(255, 255, 255)
-local u243 = Color3.fromRGB(80, 80, 80)
-
-local function resetOptionButtonColors() -- Line: 209 -- upvalues: u200 (val), u238 (val)
-    local TextLabel
-    for i, v in ipairs(u200) do
-        v.ImageColor3 = u238
-        TextLabel = v:FindFirstChildOfClass("TextLabel")
-        if TextLabel then
-            TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        end
-    end
+function Library:_row(height)
+	local row = create("Frame", {
+		Size = UDim2.new(1, 0, 0, height or 34),
+		BackgroundColor3 = self.Theme.Surface,
+		BorderSizePixel = 0,
+	}, self.Content)
+	round(row)
+	return row
 end
 
-for i4, j in ipairs(u200) do
-    local Size = j.Size
-    j.MouseEnter:Connect(function() -- Line: 222 -- upvalues: u129 (ref), Sound_3 (val), Size (val), TweenService (val), j (val), u157 (val)
-        if u129 then
-            return
-        end
-        Sound_3:Play()
-        local new = UDim2.new
-        local v1 = Size.X.Scale * 1.05
-        local v2 = Size
-        local v3 = new(v1, v2.X.Offset, Size.Y.Scale * 1.05, Size.Y.Offset)
-        v1 = TweenService
-        local v4 = j
-        local v5 = u157
-        local v6 = {Size = v3}
-        v1:Create(v4, v5, v6):Play()
-    end)
-    j.MouseLeave:Connect(function() -- Line: 232 -- upvalues: TweenService (val), j (val), u157 (val), Size (val)
-        local v1 = TweenService
-        local v2 = j
-        local v3 = u157
-        local v4 = {Size = Size}
-        v1:Create(v2, v3, v4):Play()
-    end)
-    j.MouseButton1Click:Connect(function() -- Line: 236
-        -- upvalues: u129 (ref), Sound_4 (val), SubmitAnswerEliminationMode (val), i4 (val), Size (val)
-        -- upvalues: TweenService (val), j (val), u157 (val), u200 (val), u238 (val), u243 (val)
-        local v1, v2, v3
-        if u129 then
-            return
-        end
-        u129 = true
-        Sound_4:Play()
-        local v4 = SubmitAnswerEliminationMode
-        local v5 = i4
-        v4:FireServer(v5)
-        local new = UDim2.new
-        local v6 = Size.X.Scale * 0.95
-        v5 = Size
-        v4 = new(v6, v5.X.Offset, Size.Y.Scale * 0.95, Size.Y.Offset)
-        v6 = TweenService
-        local v7 = j
-        local v8 = u157
-        local v9 = {Size = v4}
-        v6:Create(v7, v8, v9):Play()
-        for i, v in ipairs(u200) do
-            if v ~= j then
-                v2 = TweenService
-                v3 = u157
-                v1 = {ImageColor3 = u243}
-                v2:Create(v, v3, v1):Play()
-            else
-                v2 = TweenService
-                v3 = u157
-                v1 = {ImageColor3 = u238}
-                v2:Create(v, v3, v1):Play()
-            end
-        end
-    end)
+-- components ------------------------------------------------------------
+
+function Library:AddLabel(text)
+	local theme = self.Theme
+	local label = create("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 22),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = theme.SubText,
+		Font = theme.Font,
+		TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, self.Content)
+	return {
+		Set = function(_, newText)
+			label.Text = newText
+		end,
+	}
 end
-ShowEliminationSongUI.OnClientEvent:Connect(function(p1, p2) -- Line: 261
-    -- upvalues: u129 (ref), resetOptionButtonColors (val), updateHeartsDisplay (val), u130 (ref), u198 (ref)
-    -- upvalues: RoundTextLabel (val), ProgressBar (val), u187 (val), CurrentRoundFrame (val), u142 (val)
-    -- upvalues: VoteSongFrame (val), u150 (val), Sound (val), TweenService (val), u167 (val), Position (val)
-    -- upvalues: Position_2 (val), u199 (ref), getSpectrumBars (val), RunService (val), SoundService (val), u172 (val)
-    -- upvalues: u177 (val), u192 (val), u197 (val), u200 (val), u162 (val), Sound_2 (val)
-    local TextLabel, v1, v2
-    u129 = false
-    resetOptionButtonColors()
-    updateHeartsDisplay(u130, false)
-    if u198 then
-        task.cancel(u198)
-        u198 = nil
-    end
-    if RoundTextLabel then
-        RoundTextLabel.Text = "ROUND " .. tostring(p2 or 1)
-    end
-    if ProgressBar then
-        ProgressBar.Size = UDim2.new(1, 0, 1, 0)
-        ProgressBar.BackgroundColor3 = u187
-    end
-    CurrentRoundFrame.Position = u142
-    VoteSongFrame.Position = u150
-    CurrentRoundFrame.Visible = true
-    VoteSongFrame.Visible = true
-    Sound:Play()
-    local v3 = TweenService
-    local v4 = CurrentRoundFrame
-    local v5 = u167
-    local v6 = {Position = Position}
-    v3:Create(v4, v5, v6):Play()
-    v3 = TweenService
-    v4 = VoteSongFrame
-    v5 = u167
-    v6 = {Position = Position_2}
-    v3:Create(v4, v5, v6):Play()
-    if u199 then
-        u199:Disconnect()
-        u199 = nil
-    end
-    local u73 = getSpectrumBars()
-    if #u73 ~= 0 then
-        v1 = RunService
-        u199 = v1.RenderStepped:Connect(function(p1) -- Line: 171 -- upvalues: SoundService (upval), u73 (val)
-            local Size, v1, v2, v3, v4, v5, v6, v7, v8
-            local v9 = nil
-            for i, v in ipairs(SoundService:GetChildren()) do
-                if v:IsA("Sound") and v.IsPlaying then
-                    v9 = v
-                    break
-                end
-            end
-            if not v9 then
-                for i4, j in ipairs(u73) do
-                    j.Size = UDim2.new(j.Size.X.Scale, j.Size.X.Offset, 0.25, 0)
-                end
-                return
-            end
-            local v10 = v9.PlaybackLoudness / 450
-            local v11 = math.clamp(v10, 0, 1)
-            v10 = #u73
-            local v12 = p1
-            for i2, i3 in ipairs(u73) do
-                v3 = (os.clock()) * 12
-                v2 = v3 + i2
-                v8 = (math.sin(v2)) * 0.15
-                v2 = v11 * 1.1 + v8
-                v1 = math.clamp(v2, 0.05, 1)
-                Size = i3.Size
-                v5 = UDim2.new(Size.X.Scale, Size.X.Offset, v1, 0)
-                v7 = v12 * 15
-                v6 = math.min(1, v7)
-                i3.Size = Size:Lerp(v5, v6)
-                if not (1 < v10) then
-                    v3 = 0
-                else
-                    v3 = (i2 - 1) / (v10 - 1)
-                    if not v3 then
-                        v3 = 0
-                    end
-                end
-                v4 = (os.clock() * 0.25 + v3) % 1
-                i3.BackgroundColor3 = Color3.fromHSV(v4, 1, 1)
-            end
-        end)
-    end
-    if ProgressBar then
-        v3 = TweenService
-        v4 = ProgressBar
-        v5 = u172
-        v6 = {Size = UDim2.new(0, 0, 1, 0)}
-        v3:Create(v4, v5, v6):Play()
-        u198 = task.spawn(function() -- Line: 297 -- upvalues: ProgressBar (upval), TweenService (upval), u177 (upval), u192 (upval), u197 (upval)
-            local v1, v2, v3, v4
-            task.wait(5)
-            if ProgressBar then
-                v1 = TweenService
-                v2 = ProgressBar
-                v3 = u177
-                v4 = {BackgroundColor3 = u192}
-                v1:Create(v2, v3, v4):Play()
-            end
-            task.wait(2.5)
-            if ProgressBar then
-                v1 = TweenService
-                v2 = ProgressBar
-                v3 = u177
-                v4 = {BackgroundColor3 = u197}
-                v1:Create(v2, v3, v4):Play()
-            end
-        end)
-    end
-    local v7 = p1
-    for i, v in ipairs(u200) do
-        v2 = v7[i]
-        if not v2 then
-            v.Visible = false
-        else
-            v.Visible = true
-            if v2.imageId then
-                v.Image = v2.imageId
-            end
-            TextLabel = v:FindFirstChildOfClass("TextLabel")
-            if TextLabel and v2.name then
-                TextLabel.Text = v2.name
-            end
-            local Size = v.Size
-            v.Size = UDim2.new(0, 0, 0, 0)
-            task.delay(0.3 + i * 0.08, function() -- Line: 326 -- upvalues: TweenService (upval), v (val), u162 (upval), Size (val)
-                local v1 = TweenService
-                local v2 = v
-                local v3 = u162
-                local v4 = {Size = Size}
-                v1:Create(v2, v3, v4):Play()
-            end)
-        end
-    end
-    task.wait(10)
-    if u199 then
-        u199:Disconnect()
-        u199 = nil
-    end
-    if u198 then
-        task.cancel(u198)
-        u198 = nil
-    end
-    Sound_2:Play()
-    v3 = TweenService
-    v4 = CurrentRoundFrame
-    v5 = u167
-    v6 = {Position = u142}
-    v3 = v3:Create(v4, v5, v6)
-    v1 = TweenService
-    v5 = VoteSongFrame
-    v6 = u167
-    v2 = {Position = u150}
-    v1 = v1:Create(v5, v6, v2)
-    v3:Play()
-    v1:Play()
-    v3.Completed:Wait()
-    CurrentRoundFrame.Visible = false
-    VoteSongFrame.Visible = false
-end)
+
+function Library:AddButton(text, callback)
+	local theme = self.Theme
+	local button = create("TextButton", {
+		Size = UDim2.new(1, 0, 0, 34),
+		BackgroundColor3 = theme.Surface,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = text,
+		TextColor3 = theme.Text,
+		Font = theme.Font,
+		TextSize = 14,
+	}, self.Content)
+	round(button)
+
+	button.MouseEnter:Connect(function()
+		tween(button, { BackgroundColor3 = theme.SurfaceHover })
+	end)
+	button.MouseLeave:Connect(function()
+		tween(button, { BackgroundColor3 = theme.Surface })
+	end)
+	button.Activated:Connect(function()
+		if callback then
+			task.spawn(callback)
+		end
+	end)
+	return button
+end
+
+function Library:AddToggle(text, default, callback)
+	local theme = self.Theme
+	local state = default == true
+	local row = self:_row(34)
+
+	create("TextLabel", {
+		Size = UDim2.new(1, -60, 1, 0),
+		Position = UDim2.fromOffset(12, 0),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = theme.Text,
+		Font = theme.Font,
+		TextSize = 14,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, row)
+
+	local pill = create("TextButton", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -10, 0.5, 0),
+		Size = UDim2.fromOffset(36, 18),
+		Text = "",
+		AutoButtonColor = false,
+		BackgroundColor3 = state and theme.Accent or theme.SurfaceHover,
+		BorderSizePixel = 0,
+	}, row)
+	round(pill, 9)
+
+	local knob = create("Frame", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = state and UDim2.new(1, -16, 0.5, 0) or UDim2.new(0, 2, 0.5, 0),
+		Size = UDim2.fromOffset(14, 14),
+		BackgroundColor3 = theme.Text,
+		BorderSizePixel = 0,
+	}, pill)
+	round(knob, 7)
+
+	local function set(value, silent)
+		state = value
+		tween(pill, { BackgroundColor3 = state and theme.Accent or theme.SurfaceHover })
+		tween(knob, { Position = state and UDim2.new(1, -16, 0.5, 0) or UDim2.new(0, 2, 0.5, 0) })
+		if callback and not silent then
+			task.spawn(callback, state)
+		end
+	end
+
+	pill.Activated:Connect(function()
+		set(not state)
+	end)
+
+	return {
+		Set = function(_, value)
+			set(value)
+		end,
+		Get = function()
+			return state
+		end,
+	}
+end
+
+function Library:AddSlider(text, min, max, default, callback)
+	local theme = self.Theme
+	local value = math.clamp(default or min, min, max)
+	local row = self:_row(48)
+
+	local label = create("TextLabel", {
+		Size = UDim2.new(1, -24, 0, 22),
+		Position = UDim2.fromOffset(12, 4),
+		BackgroundTransparency = 1,
+		Text = text .. ": " .. tostring(value),
+		TextColor3 = theme.Text,
+		Font = theme.Font,
+		TextSize = 14,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, row)
+
+	local track = create("TextButton", {
+		Position = UDim2.new(0, 12, 1, -14),
+		Size = UDim2.new(1, -24, 0, 6),
+		BackgroundColor3 = theme.SurfaceHover,
+		BorderSizePixel = 0,
+		Text = "",
+		AutoButtonColor = false,
+	}, row)
+	round(track, 3)
+
+	local fill = create("Frame", {
+		Size = UDim2.fromScale((value - min) / (max - min), 1),
+		BackgroundColor3 = theme.Accent,
+		BorderSizePixel = 0,
+	}, track)
+	round(fill, 3)
+
+	local function setFromX(x)
+		local alpha = math.clamp((x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+		value = math.floor(min + (max - min) * alpha + 0.5)
+		fill.Size = UDim2.fromScale((value - min) / (max - min), 1)
+		label.Text = text .. ": " .. tostring(value)
+		if callback then
+			task.spawn(callback, value)
+		end
+	end
+
+	local sliding = false
+	track.InputBegan:Connect(function(input)
+		if isPointer(input) then
+			sliding = true
+			setFromX(input.Position.X)
+		end
+	end)
+	table.insert(self._connections, UserInputService.InputChanged:Connect(function(input)
+		if sliding and isMove(input) then
+			setFromX(input.Position.X)
+		end
+	end))
+	table.insert(self._connections, UserInputService.InputEnded:Connect(function(input)
+		if isPointer(input) then
+			sliding = false
+		end
+	end))
+
+	return {
+		Get = function()
+			return value
+		end,
+	}
+end
+
+function Library:AddTextBox(placeholder, callback)
+	local theme = self.Theme
+	local box = create("TextBox", {
+		Size = UDim2.new(1, 0, 0, 34),
+		BackgroundColor3 = theme.Surface,
+		BorderSizePixel = 0,
+		PlaceholderText = placeholder or "",
+		PlaceholderColor3 = theme.SubText,
+		Text = "",
+		TextColor3 = theme.Text,
+		Font = theme.Font,
+		TextSize = 14,
+		ClearTextOnFocus = false,
+	}, self.Content)
+	round(box)
+
+	box.FocusLost:Connect(function(enterPressed)
+		if callback then
+			task.spawn(callback, box.Text, enterPressed)
+		end
+	end)
+	return box
+end
+
+function Library:Notify(text, duration)
+	local theme = self.Theme
+	local toast = create("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 36),
+		BackgroundColor3 = theme.Surface,
+		BackgroundTransparency = 1,
+		TextTransparency = 1,
+		BorderSizePixel = 0,
+		Text = text,
+		TextColor3 = theme.Text,
+		Font = theme.Font,
+		TextSize = 14,
+	}, self.Notifications)
+	round(toast)
+
+	tween(toast, { BackgroundTransparency = 0, TextTransparency = 0 })
+	task.delay(duration or 3, function()
+		tween(toast, { BackgroundTransparency = 1, TextTransparency = 1 })
+		task.wait(0.2)
+		toast:Destroy()
+	end)
+end
+
+function Library:Destroy()
+	for _, connection in ipairs(self._connections) do
+		connection:Disconnect()
+	end
+	self.Gui:Destroy()
+end
+
+return Library
