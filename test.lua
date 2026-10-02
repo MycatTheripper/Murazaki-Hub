@@ -1,39 +1,3 @@
-UILib v2 - Roblox UI library (client-side ModuleScript)
-	Put in ReplicatedStorage as "UILib". Require from a LocalScript.
-
-	Icons: Lucide (https://lucide.dev) through latte-soft/lucide-roblox.
-	Put its module in ReplicatedStorage named "Lucide", or pass it: UILib.new(title, { Lucide = module })
-	Icon args accept a Lucide name ("home"), "rbxassetid://123" or a number.
-
-	Window options:
-		Size       UDim2 offset size            (default 560x380)
-		MinSize    Vector2                      (default 380x240)
-		MaxSize    Vector2                      (default 900x700)
-		Icon       icon shown in title bar
-		ToggleKey  Enum.KeyCode to show/hide
-		Profile    false to hide bottom-left profile card
-		Theme      table overriding theme colors (Accent, Background, ...)
-		Lucide     Lucide module
-		Intro      {
-			Image = "rbxassetid://..." | number,
-			Sound = "rbxassetid://..." | number,
-			Volume = 1, Duration = 2.5, Title = "text",
-			ImageSize = Vector2.new(160, 160), Skippable = true,
-		}
-
-	API:
-		window:AddTab(name, icon) -> page   (page has the same Add* methods)
-		window/page:AddSection(title, icon)
-		window/page:AddLabel(text, icon)
-		window/page:AddButton(text, callback, icon)
-		window/page:AddToggle(text, default, callback, icon)
-		window/page:AddSlider(text, min, max, default, callback, icon)
-		window/page:AddTextBox(placeholder, callback, icon)
-		window:Notify(text, duration, icon)
-		window:SetVisible(bool), window:Destroy()
-	Do not mix window:Add* and window:AddTab(): once a tab exists, window:Add* is hidden.
-]]
-
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
