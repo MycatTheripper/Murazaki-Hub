@@ -14,6 +14,11 @@ local Library = {
 	Themes = {}, ThemeOrder = {}, Theme = {}, ThemeName = "blue",
 	Folder = "VortexUI", ConfigName = "main",
 	AutoSave = true, FireOnInit = true,
+	-- >>> ใส่ค่า Supabase ตรงนี้ที่เดียว (สคริปต์ผู้ใช้ไม่ต้องใส่อีก) <<<
+	Supabase = {
+		Url = "https://xxxx.supabase.co",
+		Key = "anon key ของคุณ",
+	},
 	_config = {}, _conns = {}, _guis = {}, _paints = {}, _keybinds = {},
 	_inited = false, _loaded = false, _listening = false, _accent = nil,
 }
@@ -1265,12 +1270,21 @@ function Library:_rpc(cfg, fn, body)
 	return data
 end
 
+-- เติมค่าที่ขาดจาก Library.Supabase (cfg.SupabaseUrl / SupabaseKey ใส่ทับได้ถ้าต้องการ)
+local function resolveKeyCfg(cfg)
+	cfg.SupabaseUrl = cfg.SupabaseUrl or Library.Supabase.Url
+	cfg.SupabaseKey = cfg.SupabaseKey or Library.Supabase.Key
+	return cfg
+end
+
 -- ตรวจ + ผูกคีย์กับผู้ใช้ (ครั้งแรกจะบันทึกชื่อผู้ใช้ลง Supabase และเริ่มนับเวลา)
 function Library:VerifyKey(cfg, key)
 	key = (tostring(key or ""):gsub("%s+", ""))
 	if key == "" then return { ok = false, reason = "empty", message = "กรุณาใส่คีย์ก่อน" } end
-	if not (cfg.SupabaseUrl and cfg.SupabaseKey) then
-		return { ok = false, reason = "config", message = "ยังไม่ได้ตั้งค่า SupabaseUrl / SupabaseKey" }
+	resolveKeyCfg(cfg)
+	local url, anon = tostring(cfg.SupabaseUrl or ""), tostring(cfg.SupabaseKey or "")
+	if url == "" or anon == "" or url:find("xxxx", 1, true) or anon == "anon key ของคุณ" then
+		return { ok = false, reason = "config", message = "ยังไม่ได้ใส่ Supabase Url / Key ใน Library.Supabase" }
 	end
 	local data, err = self:_rpc(cfg, "use_key", {
 		p_key = key, p_username = LocalPlayer.Name, p_user_id = LocalPlayer.UserId, p_hwid = getHwid(),
@@ -1323,7 +1337,9 @@ function Library:_keyWatch(cfg)
 end
 
 function Library:KeySystem(cfg)
-	cfg = cfg or {}
+	if cfg == true or cfg == nil then cfg = {} end
+	if cfg.Enabled == false then return true end
+	resolveKeyCfg(cfg)
 	if self.KeyInfo and self.KeyInfo.ok then return true, self.KeyInfo end
 
 	self.Folder = cfg.Folder or self.Folder
@@ -1529,7 +1545,7 @@ end
 function Library:CreateWindow(config)
 	if type(config) == "string" then config = { Title = config } end
 	config = config or {}
-	if config.KeySystem then
+	if config.KeySystem and (config.KeySystem == true or config.KeySystem.Enabled ~= false) then
 		local ok = self:KeySystem(config.KeySystem)
 		if not ok then
 			self:Unload()
