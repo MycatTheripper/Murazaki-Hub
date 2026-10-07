@@ -3,6 +3,7 @@ local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
+local ContentProvider = game:GetService("ContentProvider")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -1441,9 +1442,95 @@ function Library:CreateWindow(config)
 		if not Window.ActiveTab and Window.Tabs[1] then Window:SelectTab(Window.Tabs[1]) end
 	end)
 
-	-- Animation ตอนเปิด
-	tween(Main, { GroupTransparency = 0 }, 0.25)
-	tween(MainScale, { Scale = 1 }, 0.3, Enum.EasingStyle.Back)
+	-- Animation ตอนเปิด UI (เรียกหลังหน้าโหลดจบ)
+	Window.Loaded = false
+	local function openUI()
+		Window.Loaded = true
+		tween(Main, { GroupTransparency = 0 }, 0.25)
+		tween(MainScale, { Scale = 1 }, 0.3, Enum.EasingStyle.Back)
+	end
+
+	-- หน้าโหลด (Loading Screen) เป็นรูป: config.Loading = false เพื่อปิด
+	if config.Loading == false then
+		openUI()
+		return Window
+	end
+
+	local loadImage = tostring(config.LoadingImage or config.LoadImage or iconId or "")
+	if tonumber(loadImage) then loadImage = "rbxassetid://" .. loadImage end
+	local loadTitle = tostring(config.LoadingTitle or titleText)
+	local loadMin = tonumber(config.LoadingTime) or 1.8
+
+	local Loader = new("CanvasGroup", {
+		Name = "LoadingScreen", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 0.08, BorderSizePixel = 0,
+		Active = true, ZIndex = 500, GroupTransparency = 0, Parent = ScreenGui,
+	}, { BackgroundColor3 = "Background" })
+
+	local LBox = new("Frame", { Size = UDim2.fromOffset(240, 230), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 1, Parent = Loader })
+	local LScale = new("UIScale", { Scale = 0.85, Parent = LBox })
+
+	local LImg = new("ImageLabel", {
+		Size = UDim2.fromOffset(112, 112), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 0),
+		BackgroundTransparency = 0.2, Image = loadImage, ScaleType = Enum.ScaleType.Fit, Visible = loadImage ~= "", Parent = LBox,
+	}, { BackgroundColor3 = "Card" })
+	corner(LImg, 20)
+	stroke(LImg, "Accent", 0.3)
+
+	label(LBox, { Text = loadTitle, Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(0, 128), Size = UDim2.new(1, 0, 0, 22) }, "Text")
+	local LStatus = label(LBox, { Text = "กำลังเริ่มต้น...", TextSize = 11, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(0, 152), Size = UDim2.new(1, 0, 0, 16) }, "SubText")
+
+	local LTrack = new("Frame", { Size = UDim2.new(1, -40, 0, 6), Position = UDim2.new(0, 20, 0, 184), BorderSizePixel = 0, Parent = LBox }, { BackgroundColor3 = "Card" })
+	corner(LTrack, 3)
+	local LFill = new("Frame", { Size = UDim2.new(0, 0, 1, 0), BorderSizePixel = 0, Parent = LTrack }, { BackgroundColor3 = "Accent" })
+	corner(LFill, 3)
+	local LPct = label(LBox, { Text = "0%", Font = Enum.Font.GothamMedium, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(0, 196), Size = UDim2.new(1, 0, 0, 14) }, "SubText")
+
+	tween(LScale, { Scale = 1 }, 0.35, Enum.EasingStyle.Back)
+	-- รูปเต้นเบาๆ ระหว่างโหลด
+	local pulse = TweenService:Create(LImg, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.6 })
+	pulse:Play()
+
+	local function setProgress(p, text)
+		if not Loader.Parent then return end
+		if text then LStatus.Text = text end
+		LPct.Text = math.floor(p * 100 + 0.5) .. "%"
+		tween(LFill, { Size = UDim2.new(p, 0, 1, 0) }, 0.3)
+	end
+
+	task.spawn(function()
+		local t0 = os.clock()
+
+		-- 1) โหลดรูป/ข้อมูลจริง (มี timeout กันค้าง)
+		setProgress(0.25, "กำลังโหลดรูปภาพ...")
+		local done = false
+		task.spawn(function()
+			pcall(function() ContentProvider:PreloadAsync({ LImg, BrandIcon }) end)
+			done = true
+		end)
+		while not done and os.clock() - t0 < 6 do task.wait(0.05) end
+
+		-- 2) รอสคริปต์ผู้ใช้สร้างแท็บ/ปุ่มให้เสร็จ
+		setProgress(0.6, "กำลังโหลดข้อมูล...")
+		task.wait()
+		task.wait()
+
+		-- 3) ครบเวลาขั้นต่ำ (ให้เห็นหน้าโหลดชัดๆ)
+		setProgress(0.9, "กำลังสร้าง UI...")
+		local left = loadMin - (os.clock() - t0)
+		if left > 0 then task.wait(left) end
+
+		setProgress(1, "พร้อมแล้ว!")
+		task.wait(0.25)
+
+		-- เฟดหน้าโหลดออก แล้วค่อยเข้า UI
+		pulse:Cancel()
+		if not Loader.Parent then return end
+		local fade = tween(Loader, { GroupTransparency = 1 }, 0.35)
+		tween(LScale, { Scale = 1.08 }, 0.35)
+		fade.Completed:Wait()
+		Loader:Destroy()
+		if ScreenGui.Parent then openUI() end
+	end)
 
 	return Window
 end
