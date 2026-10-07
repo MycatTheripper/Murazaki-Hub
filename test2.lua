@@ -1253,14 +1253,15 @@ end
 
 function Library:_rpc(cfg, fn, body)
 	local url = (tostring(cfg.SupabaseUrl or ""):gsub("/+$", ""))
+	local headers = { ["Content-Type"] = "application/json", ["apikey"] = cfg.SupabaseKey }
+	-- คีย์แบบเก่า (eyJ...) เป็น JWT ส่งใน Authorization ได้ / คีย์ใหม่ (sb_publishable_...) ไม่ใช่ JWT ห้ามส่ง
+	if not tostring(cfg.SupabaseKey):find("^sb_") then
+		headers["Authorization"] = "Bearer " .. tostring(cfg.SupabaseKey)
+	end
 	local ok, res = httpRequest({
 		Url = url .. "/rest/v1/rpc/" .. fn,
 		Method = "POST",
-		Headers = {
-			["Content-Type"] = "application/json",
-			["apikey"] = cfg.SupabaseKey,
-			["Authorization"] = "Bearer " .. tostring(cfg.SupabaseKey),
-		},
+		Headers = headers,
 		Body = HttpService:JSONEncode(body),
 	})
 	if not ok or type(res) ~= "table" then return nil, "network" end
@@ -1297,6 +1298,7 @@ function Library:VerifyKey(cfg, key)
 		return {
 			ok = true, key = key, reason = data.reason, username = data.username,
 			lifetime = rem == nil, remaining = rem, expireClock = rem and (os.clock() + rem) or nil,
+			expiresAt = data.expires_at, activatedAt = data.activated_at, note = data.note, hwid = getHwid(),
 		}
 	end
 	return { ok = false, reason = data.reason, message = REASONS[data.reason] or "ตรวจสอบคีย์ไม่ผ่าน" }
@@ -1343,6 +1345,7 @@ function Library:KeySystem(cfg)
 	if self.KeyInfo and self.KeyInfo.ok then return true, self.KeyInfo end
 
 	self.Folder = cfg.Folder or self.Folder
+	self._keyFolder = self.Folder
 	self:_readConfig()
 	if type(self._config["ui.accent"]) == "string" then self._accent = fromHex(self._config["ui.accent"]) end
 	self:_loadPreset(resolveTheme(self._config["ui.theme"]) or resolveTheme(cfg.Theme) or "blue")
@@ -1352,51 +1355,47 @@ function Library:KeySystem(cfg)
 	table.insert(self._guis, Gui)
 
 	local Backdrop = new("CanvasGroup", {
-		Size = UDim2.fromScale(1, 1), BackgroundTransparency = 0.3, BorderSizePixel = 0, GroupTransparency = 1, Active = true, Parent = Gui,
+		Size = UDim2.fromScale(1, 1), BackgroundTransparency = 0.5, BorderSizePixel = 0, GroupTransparency = 1, Active = true, Parent = Gui,
 	}, { BackgroundColor3 = "Background" })
 
-	local cw = math.clamp(viewport().X * 0.9, 280, 380)
+	local vpK = viewport()
+	local cw = math.clamp(vpK.X * 0.92, 300, 540)
+	local wide = cw >= 460
+	local ch = wide and 222 or 300
 	local Card = new("Frame", {
-		Size = UDim2.fromOffset(cw, 316), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 26),
-		BackgroundTransparency = 0.06, Parent = Backdrop,
-	}, { BackgroundColor3 = "Card" })
-	corner(Card, 12)
-	local CStroke = new("UIStroke", { Thickness = 1.4, Transparency = 0.2, Parent = Card })
-	local CGrad = new("UIGradient", { Rotation = 35, Parent = CStroke })
-	onTheme(Card, function()
-		CGrad.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Theme.Accent), ColorSequenceKeypoint.new(0.5, Theme.Stroke), ColorSequenceKeypoint.new(1, Theme.Accent2),
-		})
-	end)
+		Size = UDim2.fromOffset(cw, ch), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 26),
+		BackgroundTransparency = 0.03, Parent = Backdrop,
+	}, { BackgroundColor3 = "Background" })
+	corner(Card, 14)
+	local CStroke = stroke(Card, "Accent", 0.2)
+	CStroke.Thickness = 1.6
 	local CScale = new("UIScale", { Scale = 0.9, Parent = Card })
 
-	-- โลโก้
+	-- หัวการ์ด: โลโก้เล็ก + ชื่อ + คำอธิบายใต้ชื่อ
 	local img = tostring(cfg.Image or cfg.Icon or "")
 	if tonumber(img) then img = "rbxassetid://" .. img end
-	local Logo = new("Frame", { Size = UDim2.fromOffset(64, 64), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 20), BackgroundTransparency = 0.25, Parent = Card }, { BackgroundColor3 = "Background" })
-	corner(Logo, 16)
-	stroke(Logo, "Accent", 0.35)
+	local hx = 20
 	if img ~= "" then
-		new("ImageLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = img, ScaleType = Enum.ScaleType.Fit, Parent = Logo })
-	else
-		label(Logo, { Text = "🔑", TextSize = 28, TextXAlignment = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1) }, "Text")
+		local lg = new("ImageLabel", { Size = UDim2.fromOffset(32, 32), Position = UDim2.fromOffset(18, 14), BackgroundTransparency = 1, Image = img, ScaleType = Enum.ScaleType.Fit, Parent = Card })
+		corner(lg, 8)
+		hx = 58
 	end
+	label(Card, { Text = tostring(cfg.Title or "Key System"), Font = Enum.Font.GothamBold, TextSize = 16, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(hx, 13), Size = UDim2.new(1, -(hx + 44), 0, 20) }, "Text")
+	label(Card, { Text = tostring(cfg.Subtitle or "Key System"), TextSize = 11, Position = UDim2.fromOffset(hx, 33), Size = UDim2.new(1, -(hx + 44), 0, 14) }, "SubText")
 
-	label(Card, { Text = tostring(cfg.Title or "Key System"), Font = Enum.Font.GothamBold, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(0, 94), Size = UDim2.new(1, 0, 0, 22) }, "Text")
-	label(Card, { Text = tostring(cfg.Subtitle or "ใส่คีย์เพื่อเข้าใช้งาน"), TextSize = 11, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(0, 117), Size = UDim2.new(1, 0, 0, 16) }, "SubText")
-
+	-- ซ้าย: ช่องกรอก + ปุ่ม + สถานะ | ขวา: ข้อความอธิบาย
+	local colW = wide and 240 or (cw - 40)
 	local Input = new("TextBox", {
-		Text = "", PlaceholderText = "XXXX-XXXX-XXXX", Font = Enum.Font.GothamMedium, TextSize = 13, ClearTextOnFocus = false,
-		TextXAlignment = Enum.TextXAlignment.Center, Size = UDim2.new(1, -40, 0, 38), Position = UDim2.fromOffset(20, 146), Parent = Card,
+		Text = "", PlaceholderText = "key", Font = Enum.Font.GothamMedium, TextSize = 13, ClearTextOnFocus = false,
+		TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.fromOffset(colW, 38), Position = UDim2.fromOffset(20, 70), Parent = Card,
 	}, { BackgroundColor3 = "Input", TextColor3 = "Text", PlaceholderColor3 = "SubText" })
 	corner(Input, 8)
+	pad(Input, 12, 0, 12, 0)
 	local IStroke = stroke(Input, "Stroke", 0.1)
 	Input.Focused:Connect(function() tween(IStroke, { Color = Theme.Accent }, 0.15) end)
 	Input.FocusLost:Connect(function() tween(IStroke, { Color = Theme.Stroke }, 0.2) end)
 
-	local Status = label(Card, { Text = "", TextSize = 11, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, Position = UDim2.fromOffset(20, 190), Size = UDim2.new(1, -40, 0, 30) }, "SubText")
-
-	local Row = new("Frame", { Size = UDim2.new(1, -40, 0, 38), Position = UDim2.fromOffset(20, 228), BackgroundTransparency = 1, Parent = Card })
+	local Row = new("Frame", { Size = UDim2.fromOffset(colW, 34), Position = UDim2.fromOffset(20, 118), BackgroundTransparency = 1, Parent = Card })
 	local hasLink = cfg.GetKeyLink ~= nil and tostring(cfg.GetKeyLink) ~= ""
 
 	local function press(btn)
@@ -1425,22 +1424,26 @@ function Library:KeySystem(cfg)
 		press(GetBtn)
 	end
 
-	if cfg.Discord then
-		label(Card, { Text = tostring(cfg.Discord), TextSize = 10, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(0, 282), Size = UDim2.new(1, 0, 0, 16) }, "SubText")
-	end
+	local Status = label(Card, { Text = "", TextSize = 11, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(20, 160), Size = UDim2.fromOffset(colW, 44) }, "SubText")
+
+	local descText = tostring(cfg.Description or ("ใส่คีย์ที่ได้จากแอดมินเพื่อเข้าใช้งาน" .. (cfg.Discord and ("\nหากไม่มีคีย์ ติดต่อ " .. tostring(cfg.Discord)) or "")))
+	label(Card, {
+		Text = descText, TextSize = 13, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center,
+		Position = wide and UDim2.fromOffset(280, 70) or UDim2.fromOffset(20, 206), Size = wide and UDim2.new(1, -300, 0, 134) or UDim2.new(1, -40, 0, 70),
+	}, "SubText")
 
 	local CloseX = new("TextButton", {
-		Text = "×", Font = Enum.Font.GothamBold, TextSize = 18, Size = UDim2.fromOffset(26, 26), Position = UDim2.new(1, -34, 0, 8),
+		Text = "X", Font = Enum.Font.GothamBold, TextSize = 15, Size = UDim2.fromOffset(28, 28), Position = UDim2.new(1, -38, 0, 8),
 		BackgroundTransparency = 1, AutoButtonColor = false, Parent = Card,
-	}, { TextColor3 = "SubText" })
+	}, { TextColor3 = "Text" })
 	CloseX.MouseEnter:Connect(function() tween(CloseX, { TextColor3 = Theme.Error }, 0.12) end)
-	CloseX.MouseLeave:Connect(function() tween(CloseX, { TextColor3 = Theme.SubText }, 0.12) end)
+	CloseX.MouseLeave:Connect(function() tween(CloseX, { TextColor3 = Theme.Text }, 0.12) end)
 
 	-- ----- logic -----
 	local busy, finished, result = false, false, false
 	local done = Instance.new("BindableEvent")
 	local hb = RunService.Heartbeat:Connect(function()
-		CGrad.Rotation = (os.clock() * 40) % 360
+		CStroke.Transparency = 0.15 + 0.2 * (0.5 + 0.5 * math.sin(os.clock() * 2.2))
 	end)
 	Gui.Destroying:Connect(function()
 		finished = true
@@ -1540,6 +1543,125 @@ function Library:KeySystem(cfg)
 	done.Event:Wait()
 	done:Destroy()
 	return result, self.KeyInfo
+end
+
+----------------------------------------------------------------------
+-- ACCOUNT PAGE (สไตล์หน้า Account: ผู้ใช้ / คีย์ / เวลาที่เหลือ / ออกจากระบบ)
+----------------------------------------------------------------------
+function WindowMT:_buildAccount(config)
+	local tab = self:CreateTab("Account", config.AccountIcon, 9990, true)
+	local page = tab.Page
+	local info = Library.KeyInfo
+	local order = 0
+	local function nextO() order = order + 1 return order end
+
+	local function row(h)
+		return new("Frame", { Size = UDim2.new(1, 0, 0, h or 56), BackgroundTransparency = 1, LayoutOrder = nextO(), Parent = page })
+	end
+	local function divider()
+		new("Frame", { Size = UDim2.new(1, 0, 0, 1), BackgroundTransparency = 0.6, BorderSizePixel = 0, LayoutOrder = nextO(), Parent = page }, { BackgroundColor3 = "Stroke" })
+	end
+	-- ช่องข้อมูล: หัวข้อเล็ก + ค่าตัวหนา (+ บรรทัดย่อย)
+	local function cell(parent, right, title, value, sub)
+		local f = new("Frame", { Size = UDim2.new(0.5, -6, 1, 0), Position = right and UDim2.new(0.5, 6, 0, 0) or UDim2.new(), BackgroundTransparency = 1, Parent = parent })
+		local al = right and Enum.TextXAlignment.Right or Enum.TextXAlignment.Left
+		label(f, { Text = title, TextSize = 10, TextXAlignment = al, Size = UDim2.new(1, 0, 0, 14) }, "SubText")
+		local v = label(f, { Text = tostring(value), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = al, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(0, 16), Size = UDim2.new(1, 0, 0, 18) }, "Text")
+		local s
+		if sub then
+			s = label(f, { Text = tostring(sub), TextSize = 10, TextXAlignment = al, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(0, 35), Size = UDim2.new(1, 0, 0, 14) }, "SubText")
+		end
+		return v, s, f
+	end
+
+	-- แถว 1: ผู้ใช้ | User ID
+	local r1 = row(56)
+	local nameV = cell(r1, false, "Account", LocalPlayer.DisplayName .. "  (@" .. LocalPlayer.Name .. ")")
+	nameV.Position, nameV.Size = UDim2.fromOffset(26, 16), UDim2.new(1, -26, 0, 18)
+	local av = new("ImageLabel", { Size = UDim2.fromOffset(20, 20), Position = UDim2.fromOffset(0, 16), BackgroundTransparency = 0.8, Parent = nameV.Parent }, { BackgroundColor3 = "Card" })
+	corner(av, 10)
+	task.spawn(function()
+		pcall(function() av.Image = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
+	end)
+	cell(r1, true, "User ID", LocalPlayer.UserId)
+	divider()
+
+	-- แถว 2: คีย์ (ปิดบางส่วน) | อายุบัญชี Roblox
+	local r2 = row(56)
+	local maskedKey = "-"
+	if info and info.key then maskedKey = info.key:sub(1, math.min(8, #info.key)) .. string.rep("*", 8) end
+	cell(r2, false, "License Key", maskedKey)
+	cell(r2, true, "Account Age", LocalPlayer.AccountAge .. " days")
+	divider()
+
+	-- แถว 3: แพลน + วันหมดอายุ | เวลาที่เหลือ (นับสด)
+	local r3 = row(60)
+	local plan, planSub = "No license", "ไม่ได้เปิดระบบคีย์"
+	if info then
+		plan = info.note or (info.lifetime and "Lifetime" or "Timed")
+		local d, t = tostring(info.expiresAt or ""):match("^(%d+%-%d+%-%d+)T(%d+:%d+)")
+		planSub = d and ("Active License - Valid until " .. d .. " " .. t .. " UTC") or "Active License - Lifetime"
+	end
+	cell(r3, false, "Plan", plan, planSub)
+	local remV = cell(r3, true, "Time Remaining", "-")
+	task.spawn(function()
+		while remV.Parent do
+			local rem = Library:GetKeyRemaining()
+			if rem == nil then
+				remV.Text = "-"
+			elseif rem == math.huge then
+				remV.Text = "ตลอดชีพ"
+			else
+				remV.Text = Library:FormatTime(rem)
+				if rem < 600 then remV.TextColor3 = Theme.Error end
+			end
+			task.wait(1)
+		end
+	end)
+	divider()
+
+	-- แถว 4: อุปกรณ์ | Executor
+	local r4 = row(56)
+	local hw = info and info.hwid and tostring(info.hwid):sub(1, 10) or "-"
+	cell(r4, false, "Device ID", hw)
+	local exName = "Unknown"
+	pcall(function() if type(identifyexecutor) == "function" then exName = tostring((identifyexecutor())) end end)
+	cell(r4, true, "Executor", exName)
+	divider()
+
+	-- แถว 5: เวอร์ชัน | Place
+	local r5 = row(56)
+	cell(r5, false, "Library Version", Library.Version)
+	cell(r5, true, "Place ID", game.PlaceId)
+
+	-- ออกจากระบบ (เฉพาะตอนมีคีย์)
+	if info then
+		divider()
+		local r6 = row(44)
+		cell(r6, false, "ลบคีย์ที่บันทึกไว้และปิดเมนู", "Sign Out")
+		local btn = new("TextButton", {
+			Text = "Sign Out", Font = Enum.Font.GothamBold, TextSize = 12, AutoButtonColor = false,
+			AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.fromOffset(104, 32),
+			BackgroundTransparency = 0.7, Parent = r6,
+		}, { BackgroundColor3 = "Error", TextColor3 = "Error" })
+		corner(btn, 8)
+		stroke(btn, "Error", 0.6)
+		local sc = new("UIScale", { Parent = btn })
+		btn.MouseEnter:Connect(function() tween(btn, { BackgroundTransparency = 0.45 }, 0.12) end)
+		btn.MouseLeave:Connect(function() tween(btn, { BackgroundTransparency = 0.7 }, 0.15) tween(sc, { Scale = 1 }, 0.1) end)
+		btn.MouseButton1Down:Connect(function() tween(sc, { Scale = 0.95 }, 0.08) end)
+		btn.MouseButton1Up:Connect(function() tween(sc, { Scale = 1 }, 0.14, Enum.EasingStyle.Back) end)
+		btn.MouseButton1Click:Connect(function()
+			writeSavedKey(Library._keyFolder or Library.Folder, "")
+			Library.KeyInfo = nil -- หยุดตัวเฝ้าคีย์
+			Library:Notify("Sign Out", "ออกจากระบบแล้ว ลบคีย์ที่บันทึกไว้", 2)
+			task.delay(0.9, function()
+				local wins = { table.unpack(Library.Windows) }
+				for _, w in ipairs(wins) do w:FadeDestroy() end
+			end)
+		end)
+	end
+	return tab
 end
 
 function Library:CreateWindow(config)
@@ -1841,6 +1963,9 @@ function Library:CreateWindow(config)
 	end
 
 	applyLayout()
+	if config.Account ~= false then
+		Window:_buildAccount(config)
+	end
 	if config.Settings ~= false then
 		Window:_buildSettings()
 	end
@@ -1875,48 +2000,54 @@ function Library:CreateWindow(config)
 	local loadTitle = tostring(config.LoadingTitle or titleText)
 	local loadMin = tonumber(config.LoadingTime) or 1.8
 
+	-- หน้าโหลดสไตล์ Rayfield: โลโก้ + ชื่อ กลางจอ ไม่มีกรอบ เห็นเกมข้างหลัง
 	local Loader = new("CanvasGroup", {
-		Name = "LoadingScreen", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 0.08, BorderSizePixel = 0,
+		Name = "LoadingScreen", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0,
 		Active = true, ZIndex = 500, GroupTransparency = 1, Parent = ScreenGui,
 	}, { BackgroundColor3 = "Background" })
 
-	local LBox = new("Frame", { Size = UDim2.fromOffset(240, 230), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 1, Parent = Loader })
-	local LScale = new("UIScale", { Scale = 0.85, Parent = LBox })
-
+	local tSize = math.clamp(math.floor(viewport().X / 24), 26, 44)
+	local LBox = new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(0, math.floor(tSize * 1.5)),
+		AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Parent = Loader,
+	})
+	new("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, math.floor(tSize * 0.35)), SortOrder = Enum.SortOrder.LayoutOrder, Parent = LBox,
+	})
+	local LScale = new("UIScale", { Scale = 0.9, Parent = LBox })
 	local LImg = new("ImageLabel", {
-		Size = UDim2.fromOffset(112, 112), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 0),
-		BackgroundTransparency = 0.2, Image = loadImage, ScaleType = Enum.ScaleType.Fit, Visible = loadImage ~= "", Parent = LBox,
+		Size = UDim2.fromOffset(math.floor(tSize * 1.5), math.floor(tSize * 1.5)), BackgroundTransparency = 1, Image = loadImage,
+		ScaleType = Enum.ScaleType.Fit, Visible = loadImage ~= "", LayoutOrder = 1, Parent = LBox,
+	})
+	local LTitle = label(LBox, {
+		Text = loadTitle, Font = Enum.Font.GothamMedium, TextSize = tSize, AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(0, math.floor(tSize * 1.5)), LayoutOrder = 2,
+	}, "Text")
+	new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1.2, Transparency = 0.75, Parent = LTitle })
+
+	-- แถบโหลดบางๆ (ปิดไว้ เปิดด้วย LoadingBar = true)
+	local showBar = config.LoadingBar == true
+	local LTrack = new("Frame", {
+		Size = UDim2.fromOffset(180, 3), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.5, math.floor(tSize * 0.75) + 22),
+		BackgroundTransparency = 0.7, BorderSizePixel = 0, Visible = showBar, Parent = Loader,
 	}, { BackgroundColor3 = "Card" })
-	corner(LImg, 20)
-	stroke(LImg, "Accent", 0.3)
-
-	label(LBox, { Text = loadTitle, Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(0, 128), Size = UDim2.new(1, 0, 0, 22) }, "Text")
-	local LStatus = label(LBox, { Text = "กำลังเริ่มต้น...", TextSize = 11, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(0, 152), Size = UDim2.new(1, 0, 0, 16) }, "SubText")
-
-	local LTrack = new("Frame", { Size = UDim2.new(1, -40, 0, 6), Position = UDim2.new(0, 20, 0, 184), BorderSizePixel = 0, Parent = LBox }, { BackgroundColor3 = "Card" })
-	corner(LTrack, 3)
+	corner(LTrack, 2)
 	local LFill = new("Frame", { Size = UDim2.new(0, 0, 1, 0), BorderSizePixel = 0, Parent = LTrack }, { BackgroundColor3 = "Accent" })
-	corner(LFill, 3)
-	local LPct = label(LBox, { Text = "0%", Font = Enum.Font.GothamMedium, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(0, 196), Size = UDim2.new(1, 0, 0, 14) }, "SubText")
+	corner(LFill, 2)
 
-	tween(LScale, { Scale = 1 }, 0.35, Enum.EasingStyle.Back)
-	tween(Loader, { GroupTransparency = 0 }, 0.3)
-	-- รูปเต้นเบาๆ ระหว่างโหลด
-	local pulse = TweenService:Create(LImg, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.6 })
-	pulse:Play()
+	tween(Loader, { GroupTransparency = 0 }, 0.45)
+	tween(LScale, { Scale = 1 }, 0.55, Enum.EasingStyle.Quint)
 
-	local function setProgress(p, text)
-		if not Loader.Parent then return end
-		if text then LStatus.Text = text end
-		LPct.Text = math.floor(p * 100 + 0.5) .. "%"
-		tween(LFill, { Size = UDim2.new(p, 0, 1, 0) }, 0.3)
+	local function setProgress(p)
+		if showBar and Loader.Parent then tween(LFill, { Size = UDim2.new(p, 0, 1, 0) }, 0.3) end
 	end
 
 	task.spawn(function()
 		local t0 = os.clock()
 
 		-- 1) โหลดรูป/ข้อมูลจริง (มี timeout กันค้าง)
-		setProgress(0.25, "กำลังโหลดรูปภาพ...")
+		setProgress(0.25)
 		local done = false
 		task.spawn(function()
 			pcall(function() ContentProvider:PreloadAsync({ LImg, BrandIcon }) end)
@@ -1925,23 +2056,22 @@ function Library:CreateWindow(config)
 		while not done and os.clock() - t0 < 6 do task.wait(0.05) end
 
 		-- 2) รอสคริปต์ผู้ใช้สร้างแท็บ/ปุ่มให้เสร็จ
-		setProgress(0.6, "กำลังโหลดข้อมูล...")
+		setProgress(0.6)
 		task.wait()
 		task.wait()
 
-		-- 3) ครบเวลาขั้นต่ำ (ให้เห็นหน้าโหลดชัดๆ)
-		setProgress(0.9, "กำลังสร้าง UI...")
+		-- 3) ครบเวลาขั้นต่ำ
+		setProgress(0.9)
 		local left = loadMin - (os.clock() - t0)
 		if left > 0 then task.wait(left) end
 
-		setProgress(1, "พร้อมแล้ว!")
-		task.wait(0.25)
+		setProgress(1)
+		task.wait(0.3)
 
-		-- เฟดหน้าโหลดออก แล้วค่อยเข้า UI
-		pulse:Cancel()
+		-- โลโก้จางออก แล้วค่อยเข้า UI
 		if not Loader.Parent then return end
-		local fade = tween(Loader, { GroupTransparency = 1 }, 0.35)
-		tween(LScale, { Scale = 1.08 }, 0.35)
+		local fade = tween(Loader, { GroupTransparency = 1 }, 0.4)
+		tween(LScale, { Scale = 1.08 }, 0.4)
 		fade.Completed:Wait()
 		Loader:Destroy()
 		if ScreenGui.Parent then openUI() end
