@@ -16,8 +16,8 @@ local Library = {
 	AutoSave = true, FireOnInit = true,
 	-- >>> ใส่ค่า Supabase ตรงนี้ที่เดียว (สคริปต์ผู้ใช้ไม่ต้องใส่อีก) <<<
 	Supabase = {
-		Url = "https://xxxx.supabase.co",
-		Key = "anon key ของคุณ",
+		Url = "https://xhiavkxmtsuyphmifkfu.supabase.co",
+		Key = "sb_publishable_mPVKadPz1Uk5Tx10JF5Y_Q_v4kvmmuX",
 	},
 	_config = {}, _conns = {}, _guis = {}, _paints = {}, _keybinds = {},
 	_inited = false, _loaded = false, _listening = false, _accent = nil,
