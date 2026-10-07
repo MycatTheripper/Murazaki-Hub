@@ -18,6 +18,8 @@ local Library = {
 	Supabase = {
 		Url = "https://xhiavkxmtsuyphmifkfu.supabase.co",
 		Key = "sb_publishable_mPVKadPz1Uk5Tx10JF5Y_Q_v4kvmmuX",
+		-- ตารางคีย์ใน Supabase + ชื่อคอลัมน์ (แก้ให้ตรงกับตารางจริง)
+		Table = "keys", KeyColumn = "key", PlanColumn = "plan",
 	},
 	_config = {}, _conns = {}, _guis = {}, _paints = {}, _keybinds = {},
 	_inited = false, _loaded = false, _listening = false, _accent = nil,
@@ -1074,7 +1076,7 @@ end
 function WindowMT:_filter()
 	local q = self.SearchBox.Text:lower()
 	for _, t in ipairs(self.Tabs) do
-		t.Button.Visible = q == "" or t.Name:lower():find(q, 1, true) ~= nil
+		t.Button.Visible = not t.Hidden and (q == "" or t.Name:lower():find(q, 1, true) ~= nil)
 	end
 end
 
@@ -1279,6 +1281,30 @@ local function resolveKeyCfg(cfg)
 	return cfg
 end
 
+-- ดึงค่า plan ของคีย์จากตาราง Supabase (คืน nil ถ้าดึงไม่ได้)
+function Library:FetchPlan(key)
+	key = tostring(key or "")
+	if key == "" then return nil end
+	local sb = self.Supabase
+	local url = (tostring(sb.Url or ""):gsub("/+$", ""))
+	local headers = { ["apikey"] = sb.Key }
+	if not tostring(sb.Key):find("^sb_") then headers["Authorization"] = "Bearer " .. tostring(sb.Key) end
+	local col = sb.PlanColumn or "plan"
+	local ok, res = httpRequest({
+		Url = string.format("%s/rest/v1/%s?%s=eq.%s&select=%s&limit=1", url, sb.Table or "keys", sb.KeyColumn or "key", HttpService:UrlEncode(key), col),
+		Method = "GET",
+		Headers = headers,
+	})
+	if not ok or type(res) ~= "table" then return nil end
+	local code = res.StatusCode or res.status_code or 0
+	if code < 200 or code >= 300 then return nil end
+	local ok2, data = pcall(function() return HttpService:JSONDecode(res.Body or res.body or "") end)
+	if not ok2 or type(data) ~= "table" or type(data[1]) ~= "table" then return nil end
+	local v = data[1][col]
+	if v == nil or v == "" then return nil end
+	return tostring(v)
+end
+
 -- ตรวจ + ผูกคีย์กับผู้ใช้ (ครั้งแรกจะบันทึกชื่อผู้ใช้ลง Supabase และเริ่มนับเวลา)
 function Library:VerifyKey(cfg, key)
 	key = (tostring(key or ""):gsub("%s+", ""))
@@ -1306,7 +1332,7 @@ function Library:VerifyKey(cfg, key)
 			ok = true, key = key, reason = data.reason, username = data.username,
 			never = never, enabled = data.enabled ~= false,
 			lifetime = rem == nil, remaining = rem, expireClock = rem and (os.clock() + rem) or nil,
-			expiresAt = (not never) and data.expires_at or nil, activatedAt = data.activated_at, note = data.note, hwid = getHwid(),
+			expiresAt = (not never) and data.expires_at or nil, activatedAt = data.activated_at, note = data.note, plan = data.plan ~= nil and tostring(data.plan) or nil, hwid = getHwid(),
 		}
 	end
 	return { ok = false, reason = data.reason, message = REASONS[data.reason] or "ตรวจสอบคีย์ไม่ผ่าน" }
@@ -1327,6 +1353,7 @@ function Library:_keyWatch(cfg)
 				last = os.clock()
 				local r = self:VerifyKey(cfg, self.KeyInfo.key)
 				if r.ok then
+					r.plan = r.plan or self.KeyInfo.plan
 					self.KeyInfo = r
 				elseif r.reason ~= "network" then
 					dead, msg = true, r.message
@@ -1558,6 +1585,8 @@ end
 ----------------------------------------------------------------------
 function WindowMT:_buildAccount(config)
 	local tab = self:CreateTab("Account", config.AccountIcon, 9990, true)
+	tab.Hidden = true -- ไม่โชว์ในแถบแท็บ เปิดจากการกดโปรไฟล์ด้านล่าง
+	tab.Button.Visible = false
 	local page = tab.Page
 	local info = Library.KeyInfo
 	local order = 0
@@ -1606,7 +1635,7 @@ function WindowMT:_buildAccount(config)
 	local r3 = row(60)
 	local plan, planSub = "No license", "ไม่ได้เปิดระบบคีย์"
 	if info then
-		plan = info.note or (info.lifetime and "Lifetime" or "Timed")
+		plan = info.plan or "..."
 		local d, t = tostring(info.expiresAt or ""):match("^(%d+%-%d+%-%d+)T(%d+:%d+)")
 		if info.never then
 			planSub = "Active License - Never expires"
@@ -1614,10 +1643,24 @@ function WindowMT:_buildAccount(config)
 			planSub = d and ("Active License - Valid until " .. d .. " " .. t .. " UTC") or "Active License - Lifetime"
 		end
 	end
-	cell(r3, false, "Plan", plan, planSub)
+	local planV = cell(r3, false, "Plan", plan, planSub)
+	if info and not info.plan then
+		task.spawn(function()
+			local p = Library:FetchPlan(info.key)
+			if p then
+				info.plan = p
+				if Library.KeyInfo then Library.KeyInfo.plan = p end
+				planV.Text = p
+			else
+				planV.Text = info.note or (info.lifetime and "Lifetime" or "Timed")
+			end
+		end)
+	end
 	local remV = cell(r3, true, "Time Remaining", "-")
 	task.spawn(function()
 		while remV.Parent do
+			local kp = Library.KeyInfo and Library.KeyInfo.plan
+			if kp and planV.Text ~= kp then planV.Text = kp end
 			local rem = Library:GetKeyRemaining()
 			if rem == nil then
 				remV.Text = "-"
@@ -1773,6 +1816,20 @@ function Library:CreateWindow(config)
 	local MaxBtn = ctl("□", 12, 2, "CardHover")
 	local CloseBtn = ctl("×", 16, 3, "Error")
 
+	-- แถบลาก (pill) กลางด้านบน: ลากตรงนี้เพื่อย้ายหน้าต่าง
+	local DragHit = new("TextButton", {
+		Name = "DragHandle", Text = "", AutoButtonColor = false, BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(120, 16), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 0), ZIndex = 30, Parent = Main,
+	})
+	local DragPill = new("Frame", {
+		Size = UDim2.fromOffset(60, 5), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 3),
+		BackgroundTransparency = 0.35, ZIndex = 31, Parent = DragHit,
+	}, { BackgroundColor3 = "SubText" })
+	corner(DragPill, 3)
+	stroke(DragPill, "Text", 0.7)
+	DragHit.MouseEnter:Connect(function() tween(DragPill, { BackgroundTransparency = 0.1 }, 0.12) end)
+	DragHit.MouseLeave:Connect(function() tween(DragPill, { BackgroundTransparency = 0.35 }, 0.15) end)
+
 	local TopLine = new("Frame", { Size = UDim2.new(1, 0, 0, 1), Position = UDim2.fromOffset(0, 48), BorderSizePixel = 0, BackgroundTransparency = 0.35, Parent = Main })
 	local LineGrad = new("UIGradient", { Parent = TopLine })
 	onTheme(TopLine, function() LineGrad.Color = ColorSequence.new(Theme.Accent, Theme.Accent2) end)
@@ -1839,6 +1896,14 @@ function Library:CreateWindow(config)
 				UptimeLbl.Text = string.format("Uptime: %02d:%02d:%02d", e // 3600, (e % 3600) // 60, e % 60)
 			end
 		end
+	end)
+
+	-- กดโปรไฟล์ = เปิดหน้า Account
+	local ProfileBtn = new("TextButton", { Name = "ProfileButton", Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 5, Parent = Profile })
+	ProfileBtn.MouseEnter:Connect(function() tween(Profile, { BackgroundTransparency = 0.15 }, 0.12) end)
+	ProfileBtn.MouseLeave:Connect(function() tween(Profile, { BackgroundTransparency = 0.35 }, 0.15) end)
+	ProfileBtn.MouseButton1Click:Connect(function()
+		if Window.AccountTab then Window:SelectTab(Window.AccountTab) end
 	end)
 
 	-- CONTENT
@@ -1956,23 +2021,43 @@ function Library:CreateWindow(config)
 		end
 	end)
 
-	TopBar.InputBegan:Connect(function(input)
+	-- ตำแหน่งกึ่งกลางหน้าต่าง (พิกเซล) + บีบให้อยู่ในขอบจอเสมอ
+	local function toCenter(pos)
+		local vpz = ScreenGui.AbsoluteSize
+		return pos.X.Scale * vpz.X + pos.X.Offset, pos.Y.Scale * vpz.Y + pos.Y.Offset
+	end
+	local function clampCenter(cx, cy)
+		local vpz, s = ScreenGui.AbsoluteSize, Main.AbsoluteSize
+		local hx, hy = s.X / 2, s.Y / 2
+		cx = (s.X >= vpz.X) and vpz.X / 2 or math.clamp(cx, hx, vpz.X - hx)
+		cy = (s.Y >= vpz.Y) and vpz.Y / 2 or math.clamp(cy, hy, vpz.Y - hy)
+		return cx, cy
+	end
+
+	DragHit.InputBegan:Connect(function(input)
 		if not isPress(input) or isMax then return end
-		local startMouse, startPos = input.Position, Main.Position
+		local startMouse = input.Position
+		local sx, sy = toCenter(Main.Position)
 		startDrag(function(i)
 			local d = i.Position - startMouse
-			Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+			local cx, cy = clampCenter(sx + d.X, sy + d.Y)
+			Main.Position = UDim2.fromOffset(cx, cy)
 		end)
 	end)
+
+	-- ปรับขนาดจากมุมขวาล่าง: ขยายออกพร้อมกันทุกมุม (จุดกึ่งกลางอยู่ที่เดิม)
 	Grip.InputBegan:Connect(function(input)
 		if not isPress(input) or isMin or isMax then return end
-		local startMouse, startSize, startPos = input.Position, Main.AbsoluteSize, Main.Position
+		local startMouse, startSize = input.Position, Main.AbsoluteSize
+		local cx, cy = toCenter(Main.Position)
 		startDrag(function(i)
-			local d, v = i.Position - startMouse, viewport()
-			local nw = math.clamp(startSize.X + d.X, 300, v.X - 8)
-			local nh = math.clamp(startSize.Y + d.Y, 300, v.Y - 8)
+			local d, vpz = i.Position - startMouse, ScreenGui.AbsoluteSize
+			local maxW = math.max(300, math.min(2 * cx, 2 * (vpz.X - cx)))
+			local maxH = math.max(300, math.min(2 * cy, 2 * (vpz.Y - cy)))
+			local nw = math.clamp(startSize.X + d.X * 2, 300, maxW)
+			local nh = math.clamp(startSize.Y + d.Y * 2, 300, maxH)
 			Main.Size = UDim2.fromOffset(nw, nh)
-			Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + (nw - startSize.X) / 2, startPos.Y.Scale, startPos.Y.Offset + (nh - startSize.Y) / 2)
+			Main.Position = UDim2.fromOffset(cx, cy)
 		end)
 	end)
 
@@ -1993,14 +2078,18 @@ function Library:CreateWindow(config)
 
 	applyLayout()
 	if config.Account ~= false then
-		Window:_buildAccount(config)
+		Window.AccountTab = Window:_buildAccount(config)
 	end
 	if config.Settings ~= false then
 		Window:_buildSettings()
 	end
 	-- ถ้าไม่มีแท็บผู้ใช้เลย ให้เปิด Settings เป็นหน้าแรก
 	task.defer(function()
-		if not Window.ActiveTab and Window.Tabs[1] then Window:SelectTab(Window.Tabs[1]) end
+		if not Window.ActiveTab then
+			for _, t in ipairs(Window.Tabs) do
+				if not t.Hidden then Window:SelectTab(t) break end
+			end
+		end
 	end)
 
 	-- Animation ตอนเปิด UI (เรียกหลังหน้าโหลดจบ)
