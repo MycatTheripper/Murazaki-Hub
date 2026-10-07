@@ -4,6 +4,7 @@ local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local ContentProvider = game:GetService("ContentProvider")
+local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -340,11 +341,13 @@ function Library:Notify(title, text, duration)
 		Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2,
 	}, "SubText")
 	local bar = new("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 2), BorderSizePixel = 0, Parent = card }, { BackgroundColor3 = "Accent" })
+	card.BackgroundTransparency = 1
+	tween(card, { BackgroundTransparency = 0.12 }, 0.3)
 	tween(card, { Position = UDim2.new(0, 0, 0, 0) }, 0.3, Enum.EasingStyle.Back)
 	tween(bar, { Size = UDim2.new(0, 0, 0, 2) }, duration, Enum.EasingStyle.Linear)
 	task.delay(duration, function()
 		if not card.Parent then return end
-		tween(card, { Position = UDim2.new(1.2, 0, 0, 0) }, 0.25)
+		tween(card, { Position = UDim2.new(1.2, 0, 0, 0), BackgroundTransparency = 1 }, 0.25)
 		task.wait(0.28)
 		wrap:Destroy()
 	end)
@@ -398,6 +401,8 @@ function Library:Unload()
 	self._conns, self._guis, self._paints, self._keybinds, self.Windows = {}, {}, {}, {}, {}
 	for k in pairs(self.Flags) do self.Flags[k] = nil end
 	for k in pairs(self.Elements) do self.Elements[k] = nil end
+	self.KeyInfo = nil
+	self._keyWatchId = (self._keyWatchId or 0) + 1
 	self._inited, self._listening = false, false
 	NotifHolder, TooltipFrame, TooltipLabel, activeDrag = nil, nil, nil, nil
 end
@@ -996,10 +1001,30 @@ function WindowMT:SetIcon(id) if self.BrandIcon then self.BrandIcon.Image = id e
 function WindowMT:SetTitle(t) self.TitleLabel.Text = tostring(t) end
 function WindowMT:SetSubtitle(t) self.SubtitleLabel.Text = tostring(t) end
 function WindowMT:SetVisible(v)
-	self.Main.Visible = v and true or false
-	if not v then self.Modal.Visible = false end
+	v = v and true or false
+	if not self.Loaded or self._shown == v then return end
+	self._shown = v
+	local main, sc = self.Main, self._scale
+	if v then
+		main.Visible = true
+		tween(main, { GroupTransparency = 0 }, 0.22)
+		tween(sc, { Scale = 1 }, 0.3, Enum.EasingStyle.Back)
+	else
+		self.Modal.Visible = false
+		local tw = tween(main, { GroupTransparency = 1 }, 0.18)
+		tween(sc, { Scale = 0.94 }, 0.18)
+		tw.Completed:Connect(function() if not self._shown then main.Visible = false end end)
+	end
 end
-function WindowMT:Toggle() self:SetVisible(not self.Main.Visible) end
+function WindowMT:Toggle() self:SetVisible(not self._shown) end
+function WindowMT:FadeDestroy()
+	if self._dying then return end
+	self._dying = true
+	if not (self.Loaded and self._shown) then self:Destroy() return end
+	tween(self._scale, { Scale = 0.9 }, 0.25)
+	local tw = tween(self.Main, { GroupTransparency = 1 }, 0.25)
+	tw.Completed:Connect(function() self:Destroy() end)
+end
 function WindowMT:Notify(...) Library:Notify(...) end
 function WindowMT:SetTheme(k) return Library:SetTheme(k) end
 function WindowMT:SaveConfig(s) return Library:SaveConfig(s) end
@@ -1031,6 +1056,14 @@ function WindowMT:SelectTab(tab)
 	bindColor(tab.IconObj, tab.IconProp, "Accent")
 	self.Header.Text = tab.Name
 	self.ActiveTab = tab
+	if self.Loaded then
+		tab.MainPage.Position = UDim2.fromOffset(0, 14)
+		tween(tab.MainPage, { Position = UDim2.new() }, 0.28, Enum.EasingStyle.Quint)
+		tab.Page.BackgroundTransparency = 1
+		tween(tab.Page, { BackgroundTransparency = 0.35 }, 0.3)
+		self.Header.TextTransparency = 1
+		tween(self.Header, { TextTransparency = 0 }, 0.25)
+	end
 end
 
 function WindowMT:_filter()
@@ -1148,9 +1181,361 @@ local function parentGui(gui)
 	end
 end
 
+----------------------------------------------------------------------
+-- KEY SYSTEM (Supabase)
+----------------------------------------------------------------------
+local function httpRequest(opts)
+	local req = (type(request) == "function" and request)
+		or (type(http_request) == "function" and http_request)
+		or (syn and type(syn.request) == "function" and syn.request)
+		or (fluxus and type(fluxus.request) == "function" and fluxus.request)
+	if req then return pcall(req, opts) end
+	return pcall(function() return HttpService:RequestAsync(opts) end)
+end
+
+local function getHwid()
+	local ok, v = pcall(function()
+		if type(gethwid) == "function" then return gethwid() end
+		return game:GetService("RbxAnalyticsService"):GetClientId()
+	end)
+	return ok and tostring(v) or nil
+end
+
+local function keyFile(folder)
+	if hasFolders() then return folder .. "/key.txt" end
+	return folder .. "_key.txt"
+end
+local function readSavedKey(folder)
+	if not fsAvailable() then return nil end
+	local ok, exists = pcall(isfile, keyFile(folder))
+	if not (ok and exists) then return nil end
+	local ok2, raw = pcall(readfile, keyFile(folder))
+	if not ok2 then return nil end
+	raw = tostring(raw):gsub("%s+", "")
+	return raw ~= "" and raw or nil
+end
+local function writeSavedKey(folder, key)
+	if not fsAvailable() then return end
+	pcall(function()
+		if hasFolders() and not isfolder(folder) then makefolder(folder) end
+		writefile(keyFile(folder), key or "")
+	end)
+end
+
+local REASONS = {
+	invalid = "คีย์ไม่ถูกต้อง",
+	expired = "คีย์หมดอายุแล้ว",
+	revoked = "คีย์ถูกยกเลิกแล้ว",
+	used_by_other = "คีย์นี้ถูกใช้โดยบัญชีอื่นไปแล้ว",
+}
+
+-- 3600 -> "01:00:00" , 90000 -> "1d 01h 00m"
+function Library:FormatTime(s)
+	if s == nil or s == math.huge then return "ตลอดชีพ" end
+	s = math.max(0, math.floor(s))
+	local d, h, m, sec = s // 86400, (s % 86400) // 3600, (s % 3600) // 60, s % 60
+	if d > 0 then return string.format("%dd %02dh %02dm", d, h, m) end
+	return string.format("%02d:%02d:%02d", h, m, sec)
+end
+
+-- เหลือเวลากี่วินาที (nil = ยังไม่ผ่านคีย์, math.huge = ตลอดชีพ)
+function Library:GetKeyRemaining()
+	local k = self.KeyInfo
+	if not (k and k.ok) then return nil end
+	if not k.expireClock then return math.huge end
+	return math.max(0, k.expireClock - os.clock())
+end
+
+function Library:_rpc(cfg, fn, body)
+	local url = (tostring(cfg.SupabaseUrl or ""):gsub("/+$", ""))
+	local ok, res = httpRequest({
+		Url = url .. "/rest/v1/rpc/" .. fn,
+		Method = "POST",
+		Headers = {
+			["Content-Type"] = "application/json",
+			["apikey"] = cfg.SupabaseKey,
+			["Authorization"] = "Bearer " .. tostring(cfg.SupabaseKey),
+		},
+		Body = HttpService:JSONEncode(body),
+	})
+	if not ok or type(res) ~= "table" then return nil, "network" end
+	local code = res.StatusCode or res.status_code or 0
+	local ok2, data = pcall(function() return HttpService:JSONDecode(res.Body or res.body or "") end)
+	if code < 200 or code >= 300 or not ok2 then return nil, "http " .. tostring(code) end
+	return data
+end
+
+-- ตรวจ + ผูกคีย์กับผู้ใช้ (ครั้งแรกจะบันทึกชื่อผู้ใช้ลง Supabase และเริ่มนับเวลา)
+function Library:VerifyKey(cfg, key)
+	key = (tostring(key or ""):gsub("%s+", ""))
+	if key == "" then return { ok = false, reason = "empty", message = "กรุณาใส่คีย์ก่อน" } end
+	if not (cfg.SupabaseUrl and cfg.SupabaseKey) then
+		return { ok = false, reason = "config", message = "ยังไม่ได้ตั้งค่า SupabaseUrl / SupabaseKey" }
+	end
+	local data, err = self:_rpc(cfg, "use_key", {
+		p_key = key, p_username = LocalPlayer.Name, p_user_id = LocalPlayer.UserId, p_hwid = getHwid(),
+	})
+	if not data then
+		return { ok = false, reason = "network", message = "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (" .. tostring(err) .. ")" }
+	end
+	if data.ok then
+		local rem = tonumber(data.remaining)
+		return {
+			ok = true, key = key, reason = data.reason, username = data.username,
+			lifetime = rem == nil, remaining = rem, expireClock = rem and (os.clock() + rem) or nil,
+		}
+	end
+	return { ok = false, reason = data.reason, message = REASONS[data.reason] or "ตรวจสอบคีย์ไม่ผ่าน" }
+end
+
+-- เฝ้าคีย์ระหว่างใช้งาน: หมดเวลา/ถูกยกเลิก -> เฟดปิด UI
+function Library:_keyWatch(cfg)
+	self._keyWatchId = (self._keyWatchId or 0) + 1
+	local id = self._keyWatchId
+	task.spawn(function()
+		local last = os.clock()
+		while self.KeyInfo and self._keyWatchId == id do
+			task.wait(1)
+			if not (self.KeyInfo and self._keyWatchId == id) then return end
+			local rem = self:GetKeyRemaining()
+			local dead, msg = rem ~= nil and rem <= 0, "คีย์หมดอายุแล้ว"
+			if not dead and os.clock() - last >= (cfg.RecheckInterval or 120) then
+				last = os.clock()
+				local r = self:VerifyKey(cfg, self.KeyInfo.key)
+				if r.ok then
+					self.KeyInfo = r
+				elseif r.reason ~= "network" then
+					dead, msg = true, r.message
+				end
+			end
+			if dead then
+				self:Notify("Key", msg .. " กำลังปิดเมนู...", 4)
+				task.wait(2.5)
+				self.KeyInfo = nil
+				local wins = { table.unpack(self.Windows) }
+				for _, w in ipairs(wins) do w:FadeDestroy() end
+				task.wait(0.5)
+				self:Unload()
+				return
+			end
+		end
+	end)
+end
+
+function Library:KeySystem(cfg)
+	cfg = cfg or {}
+	if self.KeyInfo and self.KeyInfo.ok then return true, self.KeyInfo end
+
+	self.Folder = cfg.Folder or self.Folder
+	self:_readConfig()
+	if type(self._config["ui.accent"]) == "string" then self._accent = fromHex(self._config["ui.accent"]) end
+	self:_loadPreset(resolveTheme(self._config["ui.theme"]) or resolveTheme(cfg.Theme) or "blue")
+
+	local Gui = new("ScreenGui", { Name = "VortexKey", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 1000, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
+	parentGui(Gui)
+	table.insert(self._guis, Gui)
+
+	local Backdrop = new("CanvasGroup", {
+		Size = UDim2.fromScale(1, 1), BackgroundTransparency = 0.3, BorderSizePixel = 0, GroupTransparency = 1, Active = true, Parent = Gui,
+	}, { BackgroundColor3 = "Background" })
+
+	local cw = math.clamp(viewport().X * 0.9, 280, 380)
+	local Card = new("Frame", {
+		Size = UDim2.fromOffset(cw, 316), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 26),
+		BackgroundTransparency = 0.06, Parent = Backdrop,
+	}, { BackgroundColor3 = "Card" })
+	corner(Card, 12)
+	local CStroke = new("UIStroke", { Thickness = 1.4, Transparency = 0.2, Parent = Card })
+	local CGrad = new("UIGradient", { Rotation = 35, Parent = CStroke })
+	onTheme(Card, function()
+		CGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Theme.Accent), ColorSequenceKeypoint.new(0.5, Theme.Stroke), ColorSequenceKeypoint.new(1, Theme.Accent2),
+		})
+	end)
+	local CScale = new("UIScale", { Scale = 0.9, Parent = Card })
+
+	-- โลโก้
+	local img = tostring(cfg.Image or cfg.Icon or "")
+	if tonumber(img) then img = "rbxassetid://" .. img end
+	local Logo = new("Frame", { Size = UDim2.fromOffset(64, 64), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 20), BackgroundTransparency = 0.25, Parent = Card }, { BackgroundColor3 = "Background" })
+	corner(Logo, 16)
+	stroke(Logo, "Accent", 0.35)
+	if img ~= "" then
+		new("ImageLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = img, ScaleType = Enum.ScaleType.Fit, Parent = Logo })
+	else
+		label(Logo, { Text = "🔑", TextSize = 28, TextXAlignment = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1) }, "Text")
+	end
+
+	label(Card, { Text = tostring(cfg.Title or "Key System"), Font = Enum.Font.GothamBold, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(0, 94), Size = UDim2.new(1, 0, 0, 22) }, "Text")
+	label(Card, { Text = tostring(cfg.Subtitle or "ใส่คีย์เพื่อเข้าใช้งาน"), TextSize = 11, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(0, 117), Size = UDim2.new(1, 0, 0, 16) }, "SubText")
+
+	local Input = new("TextBox", {
+		Text = "", PlaceholderText = "XXXX-XXXX-XXXX", Font = Enum.Font.GothamMedium, TextSize = 13, ClearTextOnFocus = false,
+		TextXAlignment = Enum.TextXAlignment.Center, Size = UDim2.new(1, -40, 0, 38), Position = UDim2.fromOffset(20, 146), Parent = Card,
+	}, { BackgroundColor3 = "Input", TextColor3 = "Text", PlaceholderColor3 = "SubText" })
+	corner(Input, 8)
+	local IStroke = stroke(Input, "Stroke", 0.1)
+	Input.Focused:Connect(function() tween(IStroke, { Color = Theme.Accent }, 0.15) end)
+	Input.FocusLost:Connect(function() tween(IStroke, { Color = Theme.Stroke }, 0.2) end)
+
+	local Status = label(Card, { Text = "", TextSize = 11, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, Position = UDim2.fromOffset(20, 190), Size = UDim2.new(1, -40, 0, 30) }, "SubText")
+
+	local Row = new("Frame", { Size = UDim2.new(1, -40, 0, 38), Position = UDim2.fromOffset(20, 228), BackgroundTransparency = 1, Parent = Card })
+	local hasLink = cfg.GetKeyLink ~= nil and tostring(cfg.GetKeyLink) ~= ""
+
+	local function press(btn)
+		local sc = new("UIScale", { Parent = btn })
+		btn.MouseEnter:Connect(function() tween(btn, { BackgroundTransparency = 0 }, 0.12) end)
+		btn.MouseLeave:Connect(function() tween(btn, { BackgroundTransparency = 0.15 }, 0.15) tween(sc, { Scale = 1 }, 0.1) end)
+		btn.MouseButton1Down:Connect(function() tween(sc, { Scale = 0.95 }, 0.08) end)
+		btn.MouseButton1Up:Connect(function() tween(sc, { Scale = 1 }, 0.14, Enum.EasingStyle.Back) end)
+	end
+
+	local VerifyBtn = new("TextButton", {
+		Text = "ตรวจสอบคีย์", Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = Theme.AccentText, AutoButtonColor = false,
+		Size = hasLink and UDim2.new(0.6, -4, 1, 0) or UDim2.fromScale(1, 1), BackgroundTransparency = 0.15, Parent = Row,
+	}, { BackgroundColor3 = "Accent" })
+	corner(VerifyBtn, 8)
+	press(VerifyBtn)
+
+	local GetBtn
+	if hasLink then
+		GetBtn = new("TextButton", {
+			Text = "รับคีย์", Font = Enum.Font.GothamMedium, TextSize = 12, AutoButtonColor = false,
+			Size = UDim2.new(0.4, -4, 1, 0), Position = UDim2.new(0.6, 4, 0, 0), BackgroundTransparency = 0.15, Parent = Row,
+		}, { BackgroundColor3 = "Input", TextColor3 = "Text" })
+		corner(GetBtn, 8)
+		stroke(GetBtn, "Stroke", 0.3)
+		press(GetBtn)
+	end
+
+	if cfg.Discord then
+		label(Card, { Text = tostring(cfg.Discord), TextSize = 10, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(0, 282), Size = UDim2.new(1, 0, 0, 16) }, "SubText")
+	end
+
+	local CloseX = new("TextButton", {
+		Text = "×", Font = Enum.Font.GothamBold, TextSize = 18, Size = UDim2.fromOffset(26, 26), Position = UDim2.new(1, -34, 0, 8),
+		BackgroundTransparency = 1, AutoButtonColor = false, Parent = Card,
+	}, { TextColor3 = "SubText" })
+	CloseX.MouseEnter:Connect(function() tween(CloseX, { TextColor3 = Theme.Error }, 0.12) end)
+	CloseX.MouseLeave:Connect(function() tween(CloseX, { TextColor3 = Theme.SubText }, 0.12) end)
+
+	-- ----- logic -----
+	local busy, finished, result = false, false, false
+	local done = Instance.new("BindableEvent")
+	local hb = RunService.Heartbeat:Connect(function()
+		CGrad.Rotation = (os.clock() * 40) % 360
+	end)
+	Gui.Destroying:Connect(function()
+		finished = true
+		hb:Disconnect()
+		done:Fire()
+	end)
+
+	local function setStatus(text, kind)
+		Status.Text = text
+		local col = kind == "ok" and Theme.Success or kind == "err" and Theme.Error or Theme.SubText
+		Status.TextTransparency = 0.7
+		tween(Status, { TextColor3 = col, TextTransparency = 0 }, 0.25)
+	end
+
+	local function shake()
+		for _, dx in ipairs({ 10, -10, 6, -6, 0 }) do
+			tween(Card, { Position = UDim2.new(0.5, dx, 0.5, 0) }, 0.05, Enum.EasingStyle.Sine)
+			task.wait(0.05)
+		end
+	end
+
+	local function close(ok)
+		if finished then return end
+		finished, result = true, ok
+		tween(CScale, { Scale = ok and 1.06 or 0.9 }, 0.3)
+		tween(Card, { Position = UDim2.new(0.5, 0, 0.5, ok and -10 or 20) }, 0.3)
+		local t = tween(Backdrop, { GroupTransparency = 1 }, 0.35)
+		t.Completed:Connect(function()
+			for i, g in ipairs(self._guis) do if g == Gui then table.remove(self._guis, i) break end end
+			Gui:Destroy()
+		end)
+	end
+
+	local function attempt(key)
+		if busy or finished then return end
+		busy = true
+		local spinning = true
+		task.spawn(function()
+			local n = 0
+			while spinning and Gui.Parent do
+				n = n % 3 + 1
+				VerifyBtn.Text = "กำลังตรวจสอบ" .. string.rep(".", n)
+				task.wait(0.3)
+			end
+		end)
+		setStatus("กำลังเชื่อมต่อฐานข้อมูล...", nil)
+		local r = self:VerifyKey(cfg, key)
+		spinning = false
+		if finished then return end
+		VerifyBtn.Text = "ตรวจสอบคีย์"
+		if r.ok then
+			self.KeyInfo = r
+			if cfg.SaveKey ~= false then writeSavedKey(self.Folder, r.key) end
+			tween(IStroke, { Color = Theme.Success }, 0.2)
+			setStatus(r.remaining and ("สำเร็จ! เหลือเวลา " .. self:FormatTime(r.remaining)) or "สำเร็จ! คีย์ตลอดชีพ", "ok")
+			task.wait(1)
+			self:_keyWatch(cfg)
+			close(true)
+		else
+			busy = false
+			if r.reason == "invalid" or r.reason == "expired" or r.reason == "revoked" or r.reason == "used_by_other" then
+				writeSavedKey(self.Folder, "")
+			end
+			setStatus(r.message or "คีย์ไม่ถูกต้อง", "err")
+			tween(IStroke, { Color = Theme.Error }, 0.15)
+			task.spawn(shake)
+			task.delay(1, function() if Gui.Parent then tween(IStroke, { Color = Theme.Stroke }, 0.3) end end)
+		end
+	end
+
+	VerifyBtn.MouseButton1Click:Connect(function() attempt(Input.Text) end)
+	Input.FocusLost:Connect(function(enter) if enter then attempt(Input.Text) end end)
+	CloseX.MouseButton1Click:Connect(function() if not busy then close(false) end end)
+	if GetBtn then
+		GetBtn.MouseButton1Click:Connect(function()
+			local ok = pcall(function() setclipboard(tostring(cfg.GetKeyLink)) end)
+			setStatus(ok and "คัดลอกลิงก์รับคีย์แล้ว นำไปเปิดในเบราว์เซอร์ได้เลย" or ("ลิงก์รับคีย์: " .. tostring(cfg.GetKeyLink)), nil)
+		end)
+	end
+
+	-- intro: จางเข้า + เด้งขึ้น
+	tween(Backdrop, { GroupTransparency = 0 }, 0.3)
+	tween(CScale, { Scale = 1 }, 0.4, Enum.EasingStyle.Back)
+	tween(Card, { Position = UDim2.fromScale(0.5, 0.5) }, 0.4, Enum.EasingStyle.Quint)
+
+	-- มีคีย์ที่เคยบันทึกไว้ -> ตรวจให้อัตโนมัติ
+	local saved = cfg.SaveKey ~= false and readSavedKey(self.Folder) or nil
+	if saved then
+		Input.Text = saved
+		task.spawn(function()
+			task.wait(0.5)
+			setStatus("พบคีย์ที่บันทึกไว้ กำลังตรวจสอบ...", nil)
+			attempt(saved)
+		end)
+	end
+
+	done.Event:Wait()
+	done:Destroy()
+	return result, self.KeyInfo
+end
+
 function Library:CreateWindow(config)
 	if type(config) == "string" then config = { Title = config } end
 	config = config or {}
+	if config.KeySystem then
+		local ok = self:KeySystem(config.KeySystem)
+		if not ok then
+			self:Unload()
+			error("[VortexUI] ไม่ผ่านระบบคีย์ / ยกเลิก", 0)
+		end
+	end
 	self:_init()
 
 	local titleText = config.Title or config[1] or "Vortex UI"
@@ -1203,6 +1588,7 @@ function Library:CreateWindow(config)
 	corner(Main, 10)
 	new("UISizeConstraint", { MinSize = Vector2.new(300, 300), Parent = Main })
 	local MainScale = new("UIScale", { Scale = 0.94, Parent = Main })
+	Window._scale, Window._shown = MainScale, true
 	local MainStroke = new("UIStroke", { Thickness = 1.2, Transparency = 0.25, Parent = Main })
 	local StrokeGrad = new("UIGradient", { Rotation = 35, Parent = MainStroke })
 	onTheme(Main, function()
@@ -1286,7 +1672,12 @@ function Library:CreateWindow(config)
 		while task.wait(1) do
 			if not UptimeLbl.Parent then break end
 			local e = math.floor(tick() - t0)
-			UptimeLbl.Text = string.format("Uptime: %02d:%02d:%02d", e // 3600, (e % 3600) // 60, e % 60)
+			local rem = Library:GetKeyRemaining()
+			if rem and (e // 4) % 2 == 1 then
+				UptimeLbl.Text = rem == math.huge and "Key: ตลอดชีพ" or ("Key: " .. Library:FormatTime(rem))
+			else
+				UptimeLbl.Text = string.format("Uptime: %02d:%02d:%02d", e // 3600, (e % 3600) // 60, e % 60)
+			end
 		end
 	end)
 
@@ -1328,7 +1719,7 @@ function Library:CreateWindow(config)
 	local NoBtn = new("TextButton", { Text = "Cancel", Font = Enum.Font.GothamMedium, TextSize = 11, Size = UDim2.new(0.5, -14, 0, 30), Position = UDim2.new(0.5, 4, 1, -40), BackgroundTransparency = 0.3, AutoButtonColor = false, ZIndex = 103, Parent = MCard }, { BackgroundColor3 = "Card", TextColor3 = "Text" })
 	corner(NoBtn, 6)
 	NoBtn.MouseButton1Click:Connect(function() Modal.Visible = false end)
-	YesBtn.MouseButton1Click:Connect(function() Window:Destroy() end)
+	YesBtn.MouseButton1Click:Connect(function() Window:FadeDestroy() end)
 
 	-- ย่อ / ขยาย / ปรับขนาด
 	local isMin, isMax = false, false
@@ -1385,7 +1776,7 @@ function Library:CreateWindow(config)
 	MinBtn.MouseButton1Click:Connect(function() setMin(not isMin) end)
 	MaxBtn.MouseButton1Click:Connect(function() setMax(not isMax) end)
 	CloseBtn.MouseButton1Click:Connect(function()
-		if closeAction == "Destroy" then Window:Destroy()
+		if closeAction == "Destroy" then Window:FadeDestroy()
 		elseif closeAction == "Hide" then
 			Window:SetVisible(false)
 			if not Window._hinted then
@@ -1448,6 +1839,13 @@ function Library:CreateWindow(config)
 		Window.Loaded = true
 		tween(Main, { GroupTransparency = 0 }, 0.25)
 		tween(MainScale, { Scale = 1 }, 0.3, Enum.EasingStyle.Back)
+		-- เส้นขอบ/เส้นหัวขยับเบาๆ
+		conn(RunService.Heartbeat, function()
+			if not Main.Visible then return end
+			local t = os.clock()
+			StrokeGrad.Rotation = (t * 25) % 360
+			LineGrad.Offset = Vector2.new(math.sin(t * 0.8) * 0.35, 0)
+		end)
 	end
 
 	-- หน้าโหลด (Loading Screen) เป็นรูป: config.Loading = false เพื่อปิด
@@ -1463,7 +1861,7 @@ function Library:CreateWindow(config)
 
 	local Loader = new("CanvasGroup", {
 		Name = "LoadingScreen", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 0.08, BorderSizePixel = 0,
-		Active = true, ZIndex = 500, GroupTransparency = 0, Parent = ScreenGui,
+		Active = true, ZIndex = 500, GroupTransparency = 1, Parent = ScreenGui,
 	}, { BackgroundColor3 = "Background" })
 
 	local LBox = new("Frame", { Size = UDim2.fromOffset(240, 230), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 1, Parent = Loader })
@@ -1486,6 +1884,7 @@ function Library:CreateWindow(config)
 	local LPct = label(LBox, { Text = "0%", Font = Enum.Font.GothamMedium, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(0, 196), Size = UDim2.new(1, 0, 0, 14) }, "SubText")
 
 	tween(LScale, { Scale = 1 }, 0.35, Enum.EasingStyle.Back)
+	tween(Loader, { GroupTransparency = 0 }, 0.3)
 	-- รูปเต้นเบาๆ ระหว่างโหลด
 	local pulse = TweenService:Create(LImg, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.6 })
 	pulse:Play()
