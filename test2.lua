@@ -1232,6 +1232,7 @@ local REASONS = {
 	expired = "คีย์หมดอายุแล้ว",
 	revoked = "คีย์ถูกยกเลิกแล้ว",
 	used_by_other = "คีย์นี้ถูกใช้โดยบัญชีอื่นไปแล้ว",
+	disabled = "คีย์ถูกปิดใช้งานอยู่ (ติดต่อแอดมิน)",
 }
 
 -- 3600 -> "01:00:00" , 90000 -> "1d 01h 00m"
@@ -1293,12 +1294,19 @@ function Library:VerifyKey(cfg, key)
 	if not data then
 		return { ok = false, reason = "network", message = "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (" .. tostring(err) .. ")" }
 	end
+	-- enabled = false -> เซิร์ฟเวอร์ปิดคีย์ไว้ (เปิด/ปิดได้ตลอดเวลาจากตาราง)
+	if data.enabled == false or data.reason == "disabled" then
+		return { ok = false, reason = "disabled", message = REASONS.disabled }
+	end
 	if data.ok then
-		local rem = tonumber(data.remaining)
+		-- never = true -> คีย์ไม่หมดอายุ (ไม่สนค่า remaining / expires_at)
+		local never = data.never == true
+		local rem = (not never) and tonumber(data.remaining) or nil
 		return {
 			ok = true, key = key, reason = data.reason, username = data.username,
+			never = never, enabled = data.enabled ~= false,
 			lifetime = rem == nil, remaining = rem, expireClock = rem and (os.clock() + rem) or nil,
-			expiresAt = data.expires_at, activatedAt = data.activated_at, note = data.note, hwid = getHwid(),
+			expiresAt = (not never) and data.expires_at or nil, activatedAt = data.activated_at, note = data.note, hwid = getHwid(),
 		}
 	end
 	return { ok = false, reason = data.reason, message = REASONS[data.reason] or "ตรวจสอบคีย์ไม่ผ่าน" }
@@ -1315,7 +1323,7 @@ function Library:_keyWatch(cfg)
 			if not (self.KeyInfo and self._keyWatchId == id) then return end
 			local rem = self:GetKeyRemaining()
 			local dead, msg = rem ~= nil and rem <= 0, "คีย์หมดอายุแล้ว"
-			if not dead and os.clock() - last >= (cfg.RecheckInterval or 120) then
+			if not dead and os.clock() - last >= (cfg.RecheckInterval or 30) then
 				last = os.clock()
 				local r = self:VerifyKey(cfg, self.KeyInfo.key)
 				if r.ok then
@@ -1600,7 +1608,11 @@ function WindowMT:_buildAccount(config)
 	if info then
 		plan = info.note or (info.lifetime and "Lifetime" or "Timed")
 		local d, t = tostring(info.expiresAt or ""):match("^(%d+%-%d+%-%d+)T(%d+:%d+)")
-		planSub = d and ("Active License - Valid until " .. d .. " " .. t .. " UTC") or "Active License - Lifetime"
+		if info.never then
+			planSub = "Active License - Never expires"
+		else
+			planSub = d and ("Active License - Valid until " .. d .. " " .. t .. " UTC") or "Active License - Lifetime"
+		end
 	end
 	cell(r3, false, "Plan", plan, planSub)
 	local remV = cell(r3, true, "Time Remaining", "-")
