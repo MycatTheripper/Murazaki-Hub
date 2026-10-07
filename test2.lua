@@ -1,27 +1,3 @@
-local Tab = Window:CreateTab("Main", "M")      -- icon: ตัวอักษรสั้นๆ หรือ rbxassetid
-
-    Tab:CreateLabel(text)
-    Tab:CreateSection(text)
-    Tab:CreateParagraph(title, content)                   --> :SetTitle() :SetContent(text, color)
-    Tab:CreateButton(text, callback)                      --> :Fire() :SetText()
-    Tab:CreateToggle(text, default, callback, flag, desc) --> :Set(bool) :Get()
-    Tab:CreateSlider(text, min, max, default, callback, flag [, increment])
-    Tab:CreateDropdown(text, options, default, callback, flag)  --> :Set :Get :Refresh(options)
-    Tab:CreateMultiDropdown(text, options, {defaults}, callback, flag)
-    Tab:CreateInput(text, placeholder, callback, flag)
-    Tab:CreateColorPicker(text, Color3, callback, flag)   --> :Set :Get :GetColor3
-    Tab:CreateKeybind(text, KeyCode, callback, flag)      -- callback ทำงานเมื่อกดปุ่มที่ผูกไว้ --> :OnChanged(fn)
-    Tab:CreateGroupbox(title)                             -- มีเมธอดเหมือน Tab
-    Tab:CreateThemePicker() / Tab:CreateToggleMenuKeybind() / Tab:CreateCFrameCopier()
-
-    Library:Notify(title, text, duration)
-    Library:SetTheme("ocean") / Library:SetAccent(Color3) / Library.Flags.myFlag
-    Library:SaveConfig() / :LoadConfig() / :ResetConfig() / :Unload()
-
-    ธีมที่มี: blue, violet, emerald, sunset, amber, midnight, graphite, ocean, rose, forest, honey, iris
-    (ใช้ key หรือชื่อที่แสดงก็ได้ ไม่สนตัวพิมพ์เล็กใหญ่)
---]]
-
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
