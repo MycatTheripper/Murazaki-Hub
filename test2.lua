@@ -1082,11 +1082,11 @@ function WindowMT:CreateTab(name, icon, order, internal)
 	local win = self
 	name = tostring(name or "Tab")
 	local btn = new("TextButton", {
-		Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Text = "", AutoButtonColor = false,
+		Size = UDim2.new(1, 0, 0, 38), BackgroundTransparency = 1, Text = "", AutoButtonColor = false,
 		LayoutOrder = order or (internal and 10000 or (#self.Tabs + 1) * 10), Parent = self.TabList,
 	}, { BackgroundColor3 = "AccentSoft" })
-	corner(btn, 6)
-	local indicator = new("Frame", { Size = UDim2.fromOffset(3, 16), Position = UDim2.new(0, 0, 0.5, -8), BorderSizePixel = 0, BackgroundTransparency = 1, Parent = btn }, { BackgroundColor3 = "Accent" })
+	corner(btn, 9)
+	local indicator = new("Frame", { Visible = false, Size = UDim2.fromOffset(3, 16), Position = UDim2.new(0, 0, 0.5, -8), BorderSizePixel = 0, BackgroundTransparency = 1, Parent = btn }, { BackgroundColor3 = "Accent" })
 	corner(indicator, 2)
 	local iconHolder = new("Frame", { Size = UDim2.fromOffset(22, 22), Position = UDim2.new(0, 10, 0.5, -11), BackgroundTransparency = 1, Parent = btn })
 	local iconObj, iconProp
@@ -1784,11 +1784,21 @@ function Library:CreateWindow(config)
 
 	local Search = new("TextBox", {
 		Text = "", PlaceholderText = "Search tabs", Font = Enum.Font.Gotham, TextSize = 12, ClearTextOnFocus = false,
-		TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 0, 28), Position = UDim2.fromOffset(10, 10), Parent = Sidebar,
+		TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 0, 28), Position = UDim2.fromOffset(10, 46), Parent = Sidebar,
 	}, { BackgroundColor3 = "Input", TextColor3 = "Text", PlaceholderColor3 = "SubText" })
 	corner(Search, 8)
 	pad(Search, 10, 0, 10, 0)
 	Window.SearchBox = Search
+
+	-- หัวแถบเมนู (ชื่อ + ปุ่มพับ/ขยาย แบบในรูป)
+	local HeaderLbl = label(Sidebar, { Text = "Home", Font = Enum.Font.GothamBold, TextSize = 17, Position = UDim2.fromOffset(14, 8), Size = UDim2.new(1, -56, 0, 28) }, "Text")
+	local CollapseBtn = new("TextButton", {
+		Text = "‹", Font = Enum.Font.GothamBold, TextSize = 18, AutoButtonColor = false, BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(28, 28), Position = UDim2.new(1, -38, 0, 8), Parent = Sidebar,
+	}, { TextColor3 = "SubText" })
+	corner(CollapseBtn, 8)
+	CollapseBtn.MouseEnter:Connect(function() tween(CollapseBtn, { BackgroundTransparency = 0.7 }, 0.1) end)
+	CollapseBtn.MouseLeave:Connect(function() tween(CollapseBtn, { BackgroundTransparency = 1 }, 0.12) end)
 	Search:GetPropertyChangedSignal("Text"):Connect(function() Window:_filter() end)
 
 	local TabList = new("ScrollingFrame", {
@@ -1838,13 +1848,16 @@ function Library:CreateWindow(config)
 
 	local function applyLayout()
 		local w = Main.AbsoluteSize.X
-		local compact = w < 520
+		local compact = w < 520 or Window._collapsed == true
 		local sw = compact and 58 or math.clamp(math.floor(w * 0.28), 130, 190)
+		HeaderLbl.Visible = not compact
+		CollapseBtn.Text = compact and "›" or "‹"
+		CollapseBtn.Position = compact and UDim2.new(0.5, -14, 0, 8) or UDim2.new(1, -38, 0, 8)
 		Sidebar.Size = UDim2.new(0, sw, 1, -49)
 		Content.Position = UDim2.fromOffset(sw + 8, 54)
 		Content.Size = UDim2.new(1, -(sw + 16), 1, -59)
 		Search.Visible = not compact
-		local top = compact and 10 or 46
+		local top = compact and 44 or 82
 		TabList.Position = UDim2.fromOffset(compact and 6 or 10, top)
 		TabList.Size = UDim2.new(1, compact and -12 or -20, 1, -(top + 68))
 		Profile.Position = UDim2.new(0, compact and 6 or 10, 1, -62)
@@ -1855,6 +1868,10 @@ function Library:CreateWindow(config)
 		for _, t in ipairs(Window.Tabs) do t:_setCompact(compact) end
 	end
 	Main:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyLayout)
+	CollapseBtn.MouseButton1Click:Connect(function()
+		Window._collapsed = not Window._collapsed
+		applyLayout()
+	end)
 
 	-- Exit modal
 	local Modal = new("Frame", { Name = "Modal", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(8, 8, 8), BackgroundTransparency = 0.45, Visible = false, ZIndex = 100, Parent = Main })
