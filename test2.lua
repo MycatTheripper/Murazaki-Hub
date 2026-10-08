@@ -1447,7 +1447,7 @@ function Library:FetchPlan(key)
 	local errs = {}
 
 	local d, e = self:_rpc({ SupabaseUrl = sb.Url, SupabaseKey = sb.Key }, "get_plan", { p_key = key })
-	if type(d) == "table" and d.plan ~= nil and tostring(d.plan) ~= "" then return tostring(d.plan) end
+	if type(d) == "table" and d.plan ~= nil and tostring(d.plan) ~= "" then return tostring(d.plan), nil, tonumber(d.duration_seconds) end
 	table.insert(errs, "rpc get_plan: " .. tostring(e or "no plan"))
 
 	local url = (tostring(sb.Url or ""):gsub("/+$", ""))
@@ -1530,6 +1530,7 @@ function Library:_keyWatch(cfg)
 				local r = self:VerifyKey(cfg, self.KeyInfo.key)
 				if r.ok then
 					r.plan = r.plan or self.KeyInfo.plan
+					r.durationSec = r.durationSec or self.KeyInfo.durationSec
 					self.KeyInfo = r
 				elseif r.reason ~= "network" then
 					dead, msg = true, r.message
@@ -1823,9 +1824,9 @@ function WindowMT:_buildAccount(config)
 	local planV = cell(r3, false, T("acc_plan"), plan, planSub)
 	if info and not info.plan then
 		task.spawn(function()
-			local p, perr
+			local p, perr, pdur
 			for _ = 1, 3 do
-				p, perr = Library:FetchPlan(info.key)
+				p, perr, pdur = Library:FetchPlan(info.key)
 				if p or not planV.Parent then break end
 				task.wait(3)
 			end
@@ -1836,6 +1837,8 @@ function WindowMT:_buildAccount(config)
 			if not planV.Parent then return end
 			if p then
 				info.plan = p
+				info.durationSec = pdur
+				if Library.KeyInfo then Library.KeyInfo.durationSec = pdur end
 				if Library.KeyInfo then Library.KeyInfo.plan = p end
 				planV.Text = p
 			else
@@ -1867,9 +1870,18 @@ function WindowMT:_buildAccount(config)
 
 			-- คีย์นี้ใช้มากี่วัน/ชั่วโมง
 			if k and k.ok then
+				-- อายุสูงสุดของคีย์ (ระยะเวลาทั้งหมดที่คีย์ใช้ได้) ไม่ใช่เวลาที่ผ่านไป
 				if k._actTs == nil then k._actTs = isoToTs(k.activatedAt) or false end
-				local secs = k._actTs and (DateTime.now().UnixTimestamp - k._actTs) or (os.clock() - LOAD_CLOCK)
-				ageV.Text = Library:FormatAge(secs)
+				if k._expTs == nil then k._expTs = isoToTs(k.expiresAt) or false end
+				local total = k.durationSec
+				if not total and k._actTs and k._expTs then total = k._expTs - k._actTs end
+				if k.never then
+					ageV.Text = T("acc_lifetime")
+				elseif total and total > 0 then
+					ageV.Text = Library:FormatAge(math.floor(total / 60 + 0.5) * 60)
+				else
+					ageV.Text = "-"
+				end
 			else
 				ageV.Text = "-"
 			end
@@ -2021,9 +2033,13 @@ function Library:CreateWindow(config)
 	local CloseBtn = ctl("×", 16, 3, "Error")
 
 	-- แถบลาก (pill) กลางด้านบน: ลากตรงนี้เพื่อย้ายหน้าต่าง
+	-- Anchor = เฟรมใสที่ก๊อปตำแหน่ง/ขนาด/สเกลของ Main ทุกเฟรม ที่จับอยู่ในนี้ (นอกขอบ Main ไม่โดนตัด)
+	local Anchor = new("Frame", { Name = "HandleAnchor", BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = false, Visible = false, Parent = ScreenGui })
+	local AnchorScale = new("UIScale", { Parent = Anchor })
+	local AnchorLimit = new("UISizeConstraint", { MinSize = Vector2.new(300, 300), Parent = Anchor })
 	local DragHit = new("TextButton", {
 		Name = "DragHandle", Text = "", AutoButtonColor = false, BackgroundTransparency = 1,
-		Size = UDim2.fromOffset(120, 22), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(-500, -500), ZIndex = 30, Visible = false, Parent = ScreenGui,
+		Size = UDim2.fromOffset(120, 22), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 1), ZIndex = 30, Parent = Anchor,
 	})
 	local DragPill = new("Frame", {
 		Size = UDim2.fromOffset(48, 3), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2),
@@ -2172,7 +2188,7 @@ function Library:CreateWindow(config)
 	local activeTween
 	local Grip = new("TextButton", {
 		Text = "", Size = UDim2.fromOffset(24, 24), AnchorPoint = Vector2.new(0, 0), ClipsDescendants = true,
-		Position = UDim2.fromOffset(-500, -500), BackgroundTransparency = 1, AutoButtonColor = false, ZIndex = 50, Visible = false, Parent = ScreenGui,
+		Position = UDim2.new(1, -10, 1, -10), BackgroundTransparency = 1, AutoButtonColor = false, ZIndex = 50, Visible = false, Parent = Anchor,
 	})
 	-- วงกลมใหญ่ตัดเหลือแค่เสี้ยวขวาล่าง = เส้นโค้งรับกับมุมหน้าต่าง (รัศมีมุม 10 + ห่าง 3)
 	local GripRing = new("Frame", {
@@ -2188,14 +2204,12 @@ function Library:CreateWindow(config)
 	conn(RunService.RenderStepped, function()
 		if not Main.Parent then return end
 		local shown = Main.Visible and Window._shown and Main.GroupTransparency < 0.9
-		DragHit.Visible = shown
+		Anchor.Visible = shown
 		Grip.Visible = shown and not isMin and not isMax
 		if not shown then return end
-		local sg = ScreenGui.AbsolutePosition
-		local p, sz, vpz = Main.AbsolutePosition - sg, Main.AbsoluteSize, ScreenGui.AbsoluteSize
-		local bottom = p.Y + sz.Y
-		DragHit.Position = UDim2.fromOffset(math.floor(p.X + sz.X / 2), math.floor(bottom + 1))
-		Grip.Position = UDim2.fromOffset(math.floor(math.min(p.X + sz.X - 10, vpz.X - 18)), math.floor(bottom - 10))
+		Anchor.AnchorPoint, Anchor.Position, Anchor.Size = Main.AnchorPoint, Main.Position, Main.Size
+		AnchorScale.Scale = MainScale.Scale
+		AnchorLimit.MinSize = sizeConstraint.MinSize
 	end)
 
 	Main:GetPropertyChangedSignal("Position"):Connect(function() if isMin then lastMinPos = Main.Position end end)
