@@ -1878,7 +1878,7 @@ function WindowMT:_buildAccount(config)
 				if k.never then
 					ageV.Text = T("acc_lifetime")
 				elseif total and total > 0 then
-					ageV.Text = Library:FormatAge(math.floor(total / 60 + 0.5) * 60)
+					ageV.Text = Library:FormatAge((k.durationSec and math.floor(total / 60) or math.floor(total / 60 + 0.5)) * 60)
 				else
 					ageV.Text = "-"
 				end
@@ -2039,7 +2039,7 @@ function Library:CreateWindow(config)
 	local AnchorLimit = new("UISizeConstraint", { MinSize = Vector2.new(300, 300), Parent = Anchor })
 	local DragHit = new("TextButton", {
 		Name = "DragHandle", Text = "", AutoButtonColor = false, BackgroundTransparency = 1,
-		Size = UDim2.fromOffset(120, 22), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 1), ZIndex = 30, Parent = Anchor,
+		Size = UDim2.fromOffset(120, 22), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 6), ZIndex = 30, Parent = Anchor,
 	})
 	local DragPill = new("Frame", {
 		Size = UDim2.fromOffset(48, 3), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2),
@@ -2187,14 +2187,14 @@ function Library:CreateWindow(config)
 	local normalPos = Main.Position
 	local activeTween
 	local Grip = new("TextButton", {
-		Text = "", Size = UDim2.fromOffset(24, 24), AnchorPoint = Vector2.new(0, 0), ClipsDescendants = true,
+		Text = "", Size = UDim2.fromOffset(28, 28), AnchorPoint = Vector2.new(0, 0), ClipsDescendants = true,
 		Position = UDim2.new(1, -10, 1, -10), BackgroundTransparency = 1, AutoButtonColor = false, ZIndex = 50, Visible = false, Parent = Anchor,
 	})
 	-- วงกลมใหญ่ตัดเหลือแค่เสี้ยวขวาล่าง = เส้นโค้งรับกับมุมหน้าต่าง (รัศมีมุม 10 + ห่าง 3)
 	local GripRing = new("Frame", {
-		Size = UDim2.fromOffset(26, 26), Position = UDim2.fromOffset(-13, -13), BackgroundTransparency = 1, ZIndex = 51, Parent = Grip,
+		Size = UDim2.fromOffset(32, 32), Position = UDim2.fromOffset(-16, -16), BackgroundTransparency = 1, ZIndex = 51, Parent = Grip,
 	})
-	corner(GripRing, 13)
+	corner(GripRing, 16)
 	local GripStroke = new("UIStroke", { Thickness = 2.5, Transparency = 0.25, Parent = GripRing }, { Color = "SubText" })
 	Grip.MouseEnter:Connect(function() tween(GripStroke, { Thickness = 4, Transparency = 0, Color = Theme.Text }, 0.15) end)
 	Grip.MouseLeave:Connect(function() tween(GripStroke, { Thickness = 2.5, Transparency = 0.25, Color = Theme.SubText }, 0.18) end)
