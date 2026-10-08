@@ -11,7 +11,7 @@ local LocalPlayer = Players.LocalPlayer
 local Library = {
 	Version = "2.0.0",
 	Flags = {}, Elements = {}, Windows = {},
-	Themes = {}, ThemeOrder = {}, Theme = {}, ThemeName = "blue",
+	Themes = {}, ThemeOrder = {}, Theme = {}, ThemeName = "blue", Lang = "th",
 	Folder = "VortexUI", ConfigName = "main",
 	AutoSave = true, FireOnInit = true,
 	-- >>> ใส่ค่า Supabase ตรงนี้ที่เดียว (สคริปต์ผู้ใช้ไม่ต้องใส่อีก) <<<
@@ -19,7 +19,7 @@ local Library = {
 		Url = "https://xhiavkxmtsuyphmifkfu.supabase.co",
 		Key = "sb_publishable_mPVKadPz1Uk5Tx10JF5Y_Q_v4kvmmuX",
 		-- ตารางคีย์ใน Supabase + ชื่อคอลัมน์ (แก้ให้ตรงกับตารางจริง)
-		Table = "keys", KeyColumn = "key", PlanColumn = "plan",
+		Table = "license_keys", KeyColumn = "key", PlanColumn = "plan",
 	},
 	_config = {}, _conns = {}, _guis = {}, _paints = {}, _keybinds = {},
 	_inited = false, _loaded = false, _listening = false, _accent = nil,
@@ -31,6 +31,90 @@ TabMT.__index = TabMT
 
 local NotifHolder, TooltipFrame, TooltipLabel
 local activeDrag
+
+local LOAD_CLOCK = os.clock()
+
+----------------------------------------------------------------------
+-- ภาษา / Language (th, en)
+----------------------------------------------------------------------
+local I18N = {
+	th = {
+		tab_account = "บัญชี", tab_settings = "ตั้งค่า",
+		acc_account = "บัญชี", acc_userid = "User ID", acc_key = "คีย์", acc_age = "อายุบัญชี", acc_days = "วัน",
+		acc_plan = "แพลน", acc_remain = "เวลาที่เหลือ", acc_device = "อุปกรณ์", acc_exec = "Executor",
+		acc_ver = "เวอร์ชันไลบรารี", acc_place = "Place ID",
+		acc_nolicense = "ไม่มีไลเซนส์", acc_nokeysys = "ไม่ได้เปิดระบบคีย์",
+		acc_active_never = "ไลเซนส์ใช้งานได้ - ไม่หมดอายุ",
+		acc_active_until = "ไลเซนส์ใช้งานได้ - ถึง %s %s UTC",
+		acc_active_life = "ไลเซนส์ใช้งานได้ - ตลอดชีพ",
+		acc_lifetime = "ตลอดชีพ",
+		acc_never_sub = "ไม่หมดอายุ • ใช้งานมา %s",
+		acc_key_age = "ใช้คีย์นี้มาแล้ว %s",
+		age_dh = "%d วัน %d ชม.", age_hm = "%d ชม. %d นาที",
+		acc_signout = "ออกจากระบบ", acc_signout_desc = "ลบคีย์ที่บันทึกไว้และปิดเมนู",
+		signout_notify = "ออกจากระบบแล้ว ลบคีย์ที่บันทึกไว้",
+		r_invalid = "คีย์ไม่ถูกต้อง", r_expired = "คีย์หมดอายุแล้ว", r_revoked = "คีย์ถูกยกเลิกแล้ว",
+		r_used_by_other = "คีย์นี้ถูกใช้โดยบัญชีอื่นไปแล้ว", r_disabled = "คีย์ถูกปิดใช้งานอยู่ (ติดต่อแอดมิน)",
+		r_fail = "ตรวจสอบคีย์ไม่ผ่าน", closing = "กำลังปิดเมนู...",
+		side_uptime = "เวลาใช้งาน: ", side_key = "คีย์: ", search_tabs = "ค้นหาแท็บ",
+		modal_title = "ยืนยันการปิด", modal_msg = "ต้องการปิดเมนูใช่หรือไม่?", modal_close = "ปิด", modal_cancel = "ยกเลิก",
+		set_language_box = "ภาษา", set_language = "ภาษาของเมนู", lang_changed = "เปลี่ยนภาษาเป็นไทยแล้ว",
+		set_appearance = "รูปลักษณ์", set_theme = "ธีม", set_accent = "สีหลัก", set_reset_accent = "รีเซ็ตสีหลัก",
+		set_window = "หน้าต่าง", set_togglekey = "ปุ่มเปิด-ปิดเมนู", set_resetwin = "รีเซ็ตขนาดและตำแหน่งหน้าต่าง",
+		set_unload = "ปิดเมนูทั้งหมด (Unload)",
+		set_config = "คอนฟิก", set_autosave = "บันทึกอัตโนมัติ",
+		set_autosave_fs = "ทุก option ที่มี flag จะถูกบันทึกอัตโนมัติที่ %s",
+		set_autosave_nofs = "Executor นี้ไม่รองรับไฟล์ ค่าจะถูกจำไว้เฉพาะเซสชันนี้",
+		set_save = "บันทึกคอนฟิก", set_load = "โหลดคอนฟิก", set_reset = "รีเซ็ตค่าทั้งหมด", set_tools = "เครื่องมือ",
+		set_cframe = "คัดลอกตำแหน่งที่ยืน (CFrame)",
+		n_theme = "ธีม", n_theme_to = "เปลี่ยนเป็น %s",
+		n_cfg_mem = "เก็บไว้ในหน่วยความจำ (Executor ไม่รองรับไฟล์)", n_cfg_saved = "บันทึก Config สำเร็จ",
+		n_cfg_savefail = "บันทึกไม่สำเร็จ", n_cfg_loaded = "โหลด Config สำเร็จ", n_cfg_reset = "รีเซ็ตค่าทั้งหมดแล้ว",
+	},
+	en = {
+		tab_account = "Account", tab_settings = "Settings",
+		acc_account = "Account", acc_userid = "User ID", acc_key = "License Key", acc_age = "Account Age", acc_days = "days",
+		acc_plan = "Plan", acc_remain = "Time Remaining", acc_device = "Device ID", acc_exec = "Executor",
+		acc_ver = "Library Version", acc_place = "Place ID",
+		acc_nolicense = "No license", acc_nokeysys = "Key system disabled",
+		acc_active_never = "Active License - Never expires",
+		acc_active_until = "Active License - Valid until %s %s UTC",
+		acc_active_life = "Active License - Lifetime",
+		acc_lifetime = "Lifetime",
+		acc_never_sub = "Never expires • active for %s",
+		acc_key_age = "Key in use for %s",
+		age_dh = "%dd %dh", age_hm = "%dh %dm",
+		acc_signout = "Sign Out", acc_signout_desc = "Remove saved key and close menu",
+		signout_notify = "Signed out, saved key removed",
+		r_invalid = "Invalid key", r_expired = "Key has expired", r_revoked = "Key has been revoked",
+		r_used_by_other = "Key is already used by another account", r_disabled = "Key is disabled (contact admin)",
+		r_fail = "Key verification failed", closing = "Closing menu...",
+		side_uptime = "Uptime: ", side_key = "Key: ", search_tabs = "Search tabs",
+		modal_title = "Exit Confirmation", modal_msg = "Are you sure you want to close the menu?", modal_close = "Close", modal_cancel = "Cancel",
+		set_language_box = "LANGUAGE", set_language = "Menu language", lang_changed = "Language set to English",
+		set_appearance = "APPEARANCE", set_theme = "Theme", set_accent = "Accent colour", set_reset_accent = "Reset accent colour",
+		set_window = "WINDOW", set_togglekey = "Toggle key", set_resetwin = "Reset window size and position",
+		set_unload = "Unload UI",
+		set_config = "CONFIG", set_autosave = "Auto-save",
+		set_autosave_fs = "Every option with a flag is saved automatically to %s",
+		set_autosave_nofs = "This executor has no file support, values are kept for this session only",
+		set_save = "Save config", set_load = "Load config", set_reset = "Reset options to default", set_tools = "TOOLS",
+		set_cframe = "Copy current position (CFrame)",
+		n_theme = "Theme", n_theme_to = "Changed to %s",
+		n_cfg_mem = "Saved in memory (executor has no file support)", n_cfg_saved = "Config saved",
+		n_cfg_savefail = "Save failed", n_cfg_loaded = "Config loaded", n_cfg_reset = "All options reset",
+	},
+}
+local function T(k, ...)
+	local s = (I18N[Library.Lang] or I18N.th)[k] or I18N.th[k] or k
+	if select("#", ...) > 0 then return s:format(...) end
+	return s
+end
+
+function Library:_loadLang()
+	local l = self._config["ui.lang"]
+	if l == "en" or l == "th" then self.Lang = l end
+end
 
 ----------------------------------------------------------------------
 -- Helpers
@@ -233,7 +317,7 @@ function Library:SetTheme(t, silent)
 		if not key then return false end
 		self:_loadPreset(key)
 		self._config["ui.theme"] = key
-		if not silent then self:Notify("ธีม", "เปลี่ยนเป็น " .. (self.Themes[key].DisplayName or key), 2) end
+		if not silent then self:Notify(T("n_theme"), T("n_theme_to", self.Themes[key].DisplayName or key), 2) end
 	end
 	self:_repaint()
 	self:_queueSave()
@@ -283,14 +367,14 @@ function Library:SaveConfig(silent)
 	end
 	self._config = cfg
 	if not fsAvailable() then
-		if not silent then self:Notify("Config", "เก็บไว้ในหน่วยความจำ (Executor ไม่รองรับไฟล์)", 3) end
+		if not silent then self:Notify("Config", T("n_cfg_mem"), 3) end
 		return false
 	end
 	if hasFolders() then
 		pcall(function() if not isfolder(self.Folder) then makefolder(self.Folder) end end)
 	end
 	local ok = pcall(function() writefile(self:_path(), HttpService:JSONEncode(cfg)) end)
-	if not silent then self:Notify("Config", ok and "บันทึก Config สำเร็จ" or "บันทึกไม่สำเร็จ", 2) end
+	if not silent then self:Notify("Config", ok and T("n_cfg_saved") or T("n_cfg_savefail"), 2) end
 	return ok
 end
 
@@ -305,7 +389,7 @@ function Library:LoadConfig(silent)
 	for flag, el in pairs(self.Elements) do
 		if cfg[flag] ~= nil then pcall(el.Set, el, cfg[flag]) end
 	end
-	if not silent then self:Notify("Config", "โหลด Config สำเร็จ", 2) end
+	if not silent then self:Notify("Config", T("n_cfg_loaded"), 2) end
 end
 
 function Library:ResetConfig(silent)
@@ -313,7 +397,7 @@ function Library:ResetConfig(silent)
 		if el.Reset then pcall(el.Reset, el) end
 	end
 	self:SaveConfig(true)
-	if not silent then self:Notify("Config", "รีเซ็ตค่าทั้งหมดแล้ว", 2) end
+	if not silent then self:Notify("Config", T("n_cfg_reset"), 2) end
 end
 
 function Library:_queueSave()
@@ -1041,6 +1125,45 @@ function WindowMT:Minimize() self._setMin(true) end
 function WindowMT:Maximize() self._setMax(not self._maximized) end
 function WindowMT:ResetLayout() self._resetLayout() end
 
+-- สร้างหน้า Account / Settings ใหม่ด้วยภาษาปัจจุบัน
+function WindowMT:_rebuildTabs()
+	if not (self.ScreenGui and self.ScreenGui.Parent) then return end
+	local cfg = self._cfg or {}
+	local active = self.ActiveTab
+	local reselect
+	if active and active == self.AccountTab then reselect = "acc" elseif active and active == self.SettingsTab then reselect = "set" end
+	local function kill(t)
+		if not t then return end
+		for i, x in ipairs(self.Tabs) do if x == t then table.remove(self.Tabs, i) break end end
+		pcall(function() t.Button:Destroy() end)
+		pcall(function() t.MainPage:Destroy() end)
+	end
+	kill(self.AccountTab)
+	kill(self.SettingsTab)
+	self.AccountTab, self.SettingsTab = nil, nil
+	if reselect then self.ActiveTab = nil end
+	if cfg.Account ~= false then self.AccountTab = self:_buildAccount(cfg) end
+	if cfg.Settings ~= false then self.SettingsTab = self:_buildSettings() end
+	if reselect == "acc" and self.AccountTab then self:SelectTab(self.AccountTab)
+	elseif reselect == "set" and self.SettingsTab then self:SelectTab(self.SettingsTab) end
+	self:_filter()
+end
+
+function WindowMT:_applyLang()
+	if self._applyStatic then self._applyStatic() end
+	task.defer(function() self:_rebuildTabs() end)
+end
+
+function Library:SetLang(code)
+	if code ~= "en" then code = "th" end
+	if self.Lang == code then return end
+	self.Lang = code
+	self._config["ui.lang"] = code
+	for _, w in ipairs(self.Windows) do w:_applyLang() end
+	self:Notify(T("tab_settings"), T("lang_changed"), 2)
+	self:_queueSave()
+end
+
 function WindowMT:Destroy()
 	for i, w in ipairs(Library.Windows) do if w == self then table.remove(Library.Windows, i) break end end
 	for i, g in ipairs(Library._guis) do if g == self.ScreenGui then table.remove(Library._guis, i) break end end
@@ -1139,32 +1262,38 @@ function WindowMT:CreateTab(name, icon, order, internal)
 end
 
 function WindowMT:_buildSettings()
-	local tab = self:CreateTab("Settings", "S", nil, true)
-	local ap = tab:CreateGroupbox("APPEARANCE")
-	ap:CreateThemePicker("Theme")
-	local picker = ap:CreateColorPicker("Accent colour", Theme.Accent, nil, nil)
+	local tab = self:CreateTab(T("tab_settings"), "S", nil, true)
+
+	local lg = tab:CreateGroupbox(T("set_language_box"))
+	local dd = lg:CreateDropdown(T("set_language"), { "ไทย", "English" }, Library.Lang == "en" and "English" or "ไทย", nil, nil)
+	dd._cb = function(v) Library:SetLang(v == "English" and "en" or "th") end
+
+	local ap = tab:CreateGroupbox(T("set_appearance"))
+	ap:CreateThemePicker(T("set_theme"))
+	local picker = ap:CreateColorPicker(T("set_accent"), Theme.Accent, nil, nil)
 	picker._cb = function(c) Library:SetAccent(c) end
-	ap:CreateButton("Reset accent colour", function()
+	ap:CreateButton(T("set_reset_accent"), function()
 		Library:SetAccent(nil)
 		picker:Set(Theme.Accent, true)
 	end)
 
-	local wn = tab:CreateGroupbox("WINDOW")
-	wn:CreateToggleMenuKeybind("Toggle key")
-	wn:CreateButton("Reset window size and position", function() self:ResetLayout() end)
-	wn:CreateButton("Unload UI", function() Library:Unload() end)
+	local wn = tab:CreateGroupbox(T("set_window"))
+	wn:CreateToggleMenuKeybind(T("set_togglekey"))
+	wn:CreateButton(T("set_resetwin"), function() self:ResetLayout() end)
+	wn:CreateButton(T("set_unload"), function() Library:Unload() end)
 
-	local cf = tab:CreateGroupbox("CONFIG")
-	cf:CreateParagraph("Auto-save", fsAvailable()
-		and ("ทุก option ที่มี flag จะถูกบันทึกอัตโนมัติที่ " .. Library:_path())
-		or "Executor นี้ไม่รองรับไฟล์ ค่าจะถูกจำไว้เฉพาะเซสชันนี้")
-	cf:CreateToggle("Auto-save", Library.AutoSave, function(v) Library.AutoSave = v end)
-	cf:CreateButton("Save config", function() Library:SaveConfig() end)
-	cf:CreateButton("Load config", function() Library:LoadConfig() end)
-	cf:CreateButton("Reset options to default", function() Library:ResetConfig() end)
+	local cf = tab:CreateGroupbox(T("set_config"))
+	cf:CreateParagraph(T("set_autosave"), fsAvailable()
+		and T("set_autosave_fs", Library:_path())
+		or T("set_autosave_nofs"))
+	cf:CreateToggle(T("set_autosave"), Library.AutoSave, function(v) Library.AutoSave = v end)
+	cf:CreateButton(T("set_save"), function() Library:SaveConfig() end)
+	cf:CreateButton(T("set_load"), function() Library:LoadConfig() end)
+	cf:CreateButton(T("set_reset"), function() Library:ResetConfig() end)
 
-	local tl = tab:CreateGroupbox("TOOLS")
-	tl:CreateCFrameCopier()
+	local tl = tab:CreateGroupbox(T("set_tools"))
+	tl:CreateCFrameCopier(T("set_cframe"))
+	return tab
 end
 
 ----------------------------------------------------------------------
@@ -1229,29 +1358,56 @@ local function writeSavedKey(folder, key)
 	end)
 end
 
-local REASONS = {
-	invalid = "คีย์ไม่ถูกต้อง",
-	expired = "คีย์หมดอายุแล้ว",
-	revoked = "คีย์ถูกยกเลิกแล้ว",
-	used_by_other = "คีย์นี้ถูกใช้โดยบัญชีอื่นไปแล้ว",
-	disabled = "คีย์ถูกปิดใช้งานอยู่ (ติดต่อแอดมิน)",
-}
 
--- 3600 -> "01:00:00" , 90000 -> "1d 01h 00m"
+-- แปลงเวลา ISO (จาก Supabase) -> unix timestamp
+local function isoToTs(str)
+	if type(str) ~= "string" or str == "" then return nil end
+	str = str:gsub(" ", "T", 1)
+	str = str:gsub("(%d%d:%d%d:%d%d)%.%d+", "%1")
+	str = str:gsub("([+-]%d%d)$", "%1:00")
+	if not str:find("[Zz]$") and not str:find("[+-]%d%d:%d%d$") then str = str .. "Z" end
+	local ok, dt = pcall(DateTime.fromIsoDate, str)
+	return ok and dt and dt.UnixTimestamp or nil
+end
+
+-- 3600 -> "01:00:00" , 90000 -> "1d 01h 00m 00s"
 function Library:FormatTime(s)
-	if s == nil or s == math.huge then return "ตลอดชีพ" end
+	if s == nil or s == math.huge then return T("acc_lifetime") end
 	s = math.max(0, math.floor(s))
 	local d, h, m, sec = s // 86400, (s % 86400) // 3600, (s % 3600) // 60, s % 60
-	if d > 0 then return string.format("%dd %02dh %02dm", d, h, m) end
+	if d > 0 then return string.format("%dd %02dh %02dm %02ds", d, h, m, sec) end
 	return string.format("%02d:%02d:%02d", h, m, sec)
 end
 
--- เหลือเวลากี่วินาที (nil = ยังไม่ผ่านคีย์, math.huge = ตลอดชีพ)
+-- อายุการใช้คีย์: "3 วัน 4 ชม." / "5 ชม. 20 นาที"
+function Library:FormatAge(s)
+	s = math.max(0, math.floor(s or 0))
+	local d, h, m = s // 86400, (s % 86400) // 3600, (s % 3600) // 60
+	if d > 0 then return T("age_dh", d, h) end
+	return T("age_hm", h, m)
+end
+
+-- เหลือเวลากี่วินาที (nil = ยังไม่ผ่านคีย์, math.huge = ตลอดชีพ) ใช้ตัดสินหมดอายุจริง
 function Library:GetKeyRemaining()
 	local k = self.KeyInfo
 	if not (k and k.ok) then return nil end
 	if not k.expireClock then return math.huge end
 	return math.max(0, k.expireClock - os.clock())
+end
+
+-- เวลาที่เหลือ "สำหรับแสดงผล" (นับสด) -- คีย์ never=true ไม่ถูกตัดแม้เวลาถึง 0
+function Library:GetDisplayRemaining()
+	local k = self.KeyInfo
+	if not (k and k.ok) then return nil end
+	if k.expireClock then return math.max(0, k.expireClock - os.clock()) end
+	if k.never and k.expiresAt then
+		if k._expTs == nil then k._expTs = isoToTs(k.expiresAt) or false end
+		if k._expTs then
+			local left = k._expTs - DateTime.now().UnixTimestamp
+			if left > 0 then return left end
+		end
+	end
+	return math.huge
 end
 
 function Library:_rpc(cfg, fn, body)
@@ -1322,7 +1478,7 @@ function Library:VerifyKey(cfg, key)
 	end
 	-- enabled = false -> เซิร์ฟเวอร์ปิดคีย์ไว้ (เปิด/ปิดได้ตลอดเวลาจากตาราง)
 	if data.enabled == false or data.reason == "disabled" then
-		return { ok = false, reason = "disabled", message = REASONS.disabled }
+		return { ok = false, reason = "disabled", message = T("r_disabled") }
 	end
 	if data.ok then
 		-- never = true -> คีย์ไม่หมดอายุ (ไม่สนค่า remaining / expires_at)
@@ -1335,7 +1491,7 @@ function Library:VerifyKey(cfg, key)
 			expiresAt = (not never) and data.expires_at or nil, activatedAt = data.activated_at, note = data.note, plan = data.plan ~= nil and tostring(data.plan) or nil, hwid = getHwid(),
 		}
 	end
-	return { ok = false, reason = data.reason, message = REASONS[data.reason] or "ตรวจสอบคีย์ไม่ผ่าน" }
+	return { ok = false, reason = data.reason, message = I18N[Library.Lang]["r_" .. tostring(data.reason)] or T("r_fail") }
 end
 
 -- เฝ้าคีย์ระหว่างใช้งาน: หมดเวลา/ถูกยกเลิก -> เฟดปิด UI
@@ -1348,7 +1504,7 @@ function Library:_keyWatch(cfg)
 			task.wait(1)
 			if not (self.KeyInfo and self._keyWatchId == id) then return end
 			local rem = self:GetKeyRemaining()
-			local dead, msg = rem ~= nil and rem <= 0, "คีย์หมดอายุแล้ว"
+			local dead, msg = rem ~= nil and rem <= 0, T("r_expired")
 			if not dead and os.clock() - last >= (cfg.RecheckInterval or 30) then
 				last = os.clock()
 				local r = self:VerifyKey(cfg, self.KeyInfo.key)
@@ -1360,7 +1516,7 @@ function Library:_keyWatch(cfg)
 				end
 			end
 			if dead then
-				self:Notify("Key", msg .. " กำลังปิดเมนู...", 4)
+				self:Notify("Key", msg .. " " .. T("closing"), 4)
 				task.wait(2.5)
 				self.KeyInfo = nil
 				local wins = { table.unpack(self.Windows) }
@@ -1382,6 +1538,7 @@ function Library:KeySystem(cfg)
 	self.Folder = cfg.Folder or self.Folder
 	self._keyFolder = self.Folder
 	self:_readConfig()
+	self:_loadLang()
 	if type(self._config["ui.accent"]) == "string" then self._accent = fromHex(self._config["ui.accent"]) end
 	self:_loadPreset(resolveTheme(self._config["ui.theme"]) or resolveTheme(cfg.Theme) or "blue")
 
@@ -1584,7 +1741,7 @@ end
 -- ACCOUNT PAGE (สไตล์หน้า Account: ผู้ใช้ / คีย์ / เวลาที่เหลือ / ออกจากระบบ)
 ----------------------------------------------------------------------
 function WindowMT:_buildAccount(config)
-	local tab = self:CreateTab("Account", config.AccountIcon, 9990, true)
+	local tab = self:CreateTab(T("tab_account"), config.AccountIcon, 9990, true)
 	tab.Hidden = true -- ไม่โชว์ในแถบแท็บ เปิดจากการกดโปรไฟล์ด้านล่าง
 	tab.Button.Visible = false
 	local page = tab.Page
@@ -1604,71 +1761,93 @@ function WindowMT:_buildAccount(config)
 		local al = right and Enum.TextXAlignment.Right or Enum.TextXAlignment.Left
 		label(f, { Text = title, TextSize = 10, TextXAlignment = al, Size = UDim2.new(1, 0, 0, 14) }, "SubText")
 		local v = label(f, { Text = tostring(value), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = al, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(0, 16), Size = UDim2.new(1, 0, 0, 18) }, "Text")
-		local s
+		local sl
 		if sub then
-			s = label(f, { Text = tostring(sub), TextSize = 10, TextXAlignment = al, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(0, 35), Size = UDim2.new(1, 0, 0, 14) }, "SubText")
+			sl = label(f, { Text = tostring(sub), TextSize = 10, TextXAlignment = al, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(0, 35), Size = UDim2.new(1, 0, 0, 14) }, "SubText")
 		end
-		return v, s, f
+		return v, sl, f
 	end
 
 	-- แถว 1: ผู้ใช้ | User ID
 	local r1 = row(56)
-	local nameV = cell(r1, false, "Account", LocalPlayer.DisplayName .. "  (@" .. LocalPlayer.Name .. ")")
+	local nameV = cell(r1, false, T("acc_account"), LocalPlayer.DisplayName .. "  (@" .. LocalPlayer.Name .. ")")
 	nameV.Position, nameV.Size = UDim2.fromOffset(26, 16), UDim2.new(1, -26, 0, 18)
 	local av = new("ImageLabel", { Size = UDim2.fromOffset(20, 20), Position = UDim2.fromOffset(0, 16), BackgroundTransparency = 0.8, Parent = nameV.Parent }, { BackgroundColor3 = "Card" })
 	corner(av, 10)
 	task.spawn(function()
 		pcall(function() av.Image = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
 	end)
-	cell(r1, true, "User ID", LocalPlayer.UserId)
+	cell(r1, true, T("acc_userid"), LocalPlayer.UserId)
 	divider()
 
-	-- แถว 2: คีย์ (ปิดบางส่วน) | อายุบัญชี Roblox
+	-- แถว 2: คีย์ (ปิดบางส่วน) + อายุการใช้คีย์ (วัน/ชม.) | อายุบัญชี Roblox
 	local r2 = row(56)
 	local maskedKey = "-"
 	if info and info.key then maskedKey = info.key:sub(1, math.min(8, #info.key)) .. string.rep("*", 8) end
-	cell(r2, false, "License Key", maskedKey)
-	cell(r2, true, "Account Age", LocalPlayer.AccountAge .. " days")
+	local _, keySub = cell(r2, false, T("acc_key"), maskedKey, " ")
+	cell(r2, true, T("acc_age"), LocalPlayer.AccountAge .. " " .. T("acc_days"))
 	divider()
 
-	-- แถว 3: แพลน + วันหมดอายุ | เวลาที่เหลือ (นับสด)
+	-- แถว 3: แพลน (ดึงจากตาราง Supabase) | เวลาที่เหลือ (นับสด)
 	local r3 = row(60)
-	local plan, planSub = "No license", "ไม่ได้เปิดระบบคีย์"
+	local plan, planSub = T("acc_nolicense"), T("acc_nokeysys")
 	if info then
 		plan = info.plan or "..."
 		local d, t = tostring(info.expiresAt or ""):match("^(%d+%-%d+%-%d+)T(%d+:%d+)")
 		if info.never then
-			planSub = "Active License - Never expires"
+			planSub = T("acc_active_never")
 		else
-			planSub = d and ("Active License - Valid until " .. d .. " " .. t .. " UTC") or "Active License - Lifetime"
+			planSub = d and T("acc_active_until", d, t) or T("acc_active_life")
 		end
 	end
-	local planV = cell(r3, false, "Plan", plan, planSub)
+	local planV = cell(r3, false, T("acc_plan"), plan, planSub)
 	if info and not info.plan then
 		task.spawn(function()
-			local p = Library:FetchPlan(info.key)
+			local p
+			for _ = 1, 3 do
+				p = Library:FetchPlan(info.key)
+				if p or not planV.Parent then break end
+				task.wait(3)
+			end
+			if not planV.Parent then return end
 			if p then
 				info.plan = p
 				if Library.KeyInfo then Library.KeyInfo.plan = p end
 				planV.Text = p
 			else
-				planV.Text = info.note or (info.lifetime and "Lifetime" or "Timed")
+				planV.Text = "-"
 			end
 		end)
 	end
-	local remV = cell(r3, true, "Time Remaining", "-")
+	local remV, remSub = cell(r3, true, T("acc_remain"), "-", " ")
 	task.spawn(function()
 		while remV.Parent do
-			local kp = Library.KeyInfo and Library.KeyInfo.plan
+			local k = Library.KeyInfo
+			local kp = k and k.plan
 			if kp and planV.Text ~= kp then planV.Text = kp end
-			local rem = Library:GetKeyRemaining()
+
+			-- เวลาที่เหลือ (นับสดทุกวินาที) / คีย์ never = ไม่หมดอายุ แสดงเวลาใช้งานแทน
+			local rem = Library:GetDisplayRemaining()
 			if rem == nil then
-				remV.Text = "-"
+				remV.Text, remSub.Text = "-", ""
+				remV.TextColor3 = Theme.Text
 			elseif rem == math.huge then
-				remV.Text = "ตลอดชีพ"
+				remV.Text = T("acc_lifetime")
+				remSub.Text = T("acc_never_sub", Library:FormatTime(os.clock() - LOAD_CLOCK))
+				remV.TextColor3 = Theme.Text
 			else
 				remV.Text = Library:FormatTime(rem)
-				if rem < 600 then remV.TextColor3 = Theme.Error end
+				remSub.Text = k and k.never and T("acc_never_sub", Library:FormatTime(os.clock() - LOAD_CLOCK)) or ""
+				remV.TextColor3 = (not (k and k.never) and rem < 600) and Theme.Error or Theme.Text
+			end
+
+			-- คีย์นี้ใช้มากี่วัน/ชั่วโมง
+			if k and k.ok then
+				if k._actTs == nil then k._actTs = isoToTs(k.activatedAt) or false end
+				local secs = k._actTs and (DateTime.now().UnixTimestamp - k._actTs) or (os.clock() - LOAD_CLOCK)
+				keySub.Text = T("acc_key_age", Library:FormatAge(secs))
+			else
+				keySub.Text = ""
 			end
 			task.wait(1)
 		end
@@ -1678,24 +1857,24 @@ function WindowMT:_buildAccount(config)
 	-- แถว 4: อุปกรณ์ | Executor
 	local r4 = row(56)
 	local hw = info and info.hwid and tostring(info.hwid):sub(1, 10) or "-"
-	cell(r4, false, "Device ID", hw)
+	cell(r4, false, T("acc_device"), hw)
 	local exName = "Unknown"
 	pcall(function() if type(identifyexecutor) == "function" then exName = tostring((identifyexecutor())) end end)
-	cell(r4, true, "Executor", exName)
+	cell(r4, true, T("acc_exec"), exName)
 	divider()
 
 	-- แถว 5: เวอร์ชัน | Place
 	local r5 = row(56)
-	cell(r5, false, "Library Version", Library.Version)
-	cell(r5, true, "Place ID", game.PlaceId)
+	cell(r5, false, T("acc_ver"), Library.Version)
+	cell(r5, true, T("acc_place"), game.PlaceId)
 
 	-- ออกจากระบบ (เฉพาะตอนมีคีย์)
 	if info then
 		divider()
 		local r6 = row(44)
-		cell(r6, false, "ลบคีย์ที่บันทึกไว้และปิดเมนู", "Sign Out")
+		cell(r6, false, T("acc_signout_desc"), T("acc_signout"))
 		local btn = new("TextButton", {
-			Text = "Sign Out", Font = Enum.Font.GothamBold, TextSize = 12, AutoButtonColor = false,
+			Text = T("acc_signout"), Font = Enum.Font.GothamBold, TextSize = 12, AutoButtonColor = false,
 			AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.fromOffset(104, 32),
 			BackgroundTransparency = 0.7, Parent = r6,
 		}, { BackgroundColor3 = "Error", TextColor3 = "Error" })
@@ -1709,7 +1888,7 @@ function WindowMT:_buildAccount(config)
 		btn.MouseButton1Click:Connect(function()
 			writeSavedKey(Library._keyFolder or Library.Folder, "")
 			Library.KeyInfo = nil -- หยุดตัวเฝ้าคีย์
-			Library:Notify("Sign Out", "ออกจากระบบแล้ว ลบคีย์ที่บันทึกไว้", 2)
+			Library:Notify("Sign Out", T("signout_notify"), 2)
 			task.delay(0.9, function()
 				local wins = { table.unpack(Library.Windows) }
 				for _, w in ipairs(wins) do w:FadeDestroy() end
@@ -1740,6 +1919,7 @@ function Library:CreateWindow(config)
 	if config.AutoSave ~= nil then self.AutoSave = config.AutoSave end
 	if config.FireOnInit ~= nil then self.FireOnInit = config.FireOnInit end
 	self:_readConfig()
+	self:_loadLang()
 
 	-- ธีม/สี/ปุ่มเปิดเมนู: ค่าที่บันทึกไว้ชนะค่าในสคริปต์ (กันหน้าจอกะพริบ)
 	if type(self._config["ui.accent"]) == "string" then self._accent = fromHex(self._config["ui.accent"]) end
@@ -1754,7 +1934,7 @@ function Library:CreateWindow(config)
 	parentGui(ScreenGui)
 	table.insert(self._guis, ScreenGui)
 
-	local Window = setmetatable({ ScreenGui = ScreenGui, Tabs = {}, Flags = {}, ToggleKey = toggleKey, _compact = false }, WindowMT)
+	local Window = setmetatable({ ScreenGui = ScreenGui, Tabs = {}, Flags = {}, ToggleKey = toggleKey, _compact = false, _cfg = config }, WindowMT)
 	table.insert(self.Windows, Window)
 
 	-- Notification holder
@@ -1819,16 +1999,16 @@ function Library:CreateWindow(config)
 	-- แถบลาก (pill) กลางด้านบน: ลากตรงนี้เพื่อย้ายหน้าต่าง
 	local DragHit = new("TextButton", {
 		Name = "DragHandle", Text = "", AutoButtonColor = false, BackgroundTransparency = 1,
-		Size = UDim2.fromOffset(120, 16), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 0), ZIndex = 30, Parent = Main,
+		Size = UDim2.fromOffset(120, 22), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(-500, -500), ZIndex = 30, Visible = false, Parent = ScreenGui,
 	})
 	local DragPill = new("Frame", {
-		Size = UDim2.fromOffset(60, 5), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 3),
-		BackgroundTransparency = 0.35, ZIndex = 31, Parent = DragHit,
+		Size = UDim2.fromOffset(60, 5), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 8),
+		BackgroundTransparency = 0.2, ZIndex = 31, Parent = DragHit,
 	}, { BackgroundColor3 = "SubText" })
 	corner(DragPill, 3)
 	stroke(DragPill, "Text", 0.7)
 	DragHit.MouseEnter:Connect(function() tween(DragPill, { BackgroundTransparency = 0.1 }, 0.12) end)
-	DragHit.MouseLeave:Connect(function() tween(DragPill, { BackgroundTransparency = 0.35 }, 0.15) end)
+	DragHit.MouseLeave:Connect(function() tween(DragPill, { BackgroundTransparency = 0.2 }, 0.15) end)
 
 	local TopLine = new("Frame", { Size = UDim2.new(1, 0, 0, 1), Position = UDim2.fromOffset(0, 48), BorderSizePixel = 0, BackgroundTransparency = 0.35, Parent = Main })
 	local LineGrad = new("UIGradient", { Parent = TopLine })
@@ -1840,7 +2020,7 @@ function Library:CreateWindow(config)
 	new("Frame", { Size = UDim2.new(0, 1, 1, 0), Position = UDim2.new(1, -1, 0, 0), BorderSizePixel = 0, BackgroundTransparency = 0.3, Parent = Sidebar }, { BackgroundColor3 = "Stroke" })
 
 	local Search = new("TextBox", {
-		Text = "", PlaceholderText = "Search tabs", Font = Enum.Font.Gotham, TextSize = 12, ClearTextOnFocus = false,
+		Text = "", PlaceholderText = T("search_tabs"), Font = Enum.Font.Gotham, TextSize = 12, ClearTextOnFocus = false,
 		TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 0, 28), Position = UDim2.fromOffset(10, 46), Parent = Sidebar,
 	}, { BackgroundColor3 = "Input", TextColor3 = "Text", PlaceholderColor3 = "SubText" })
 	corner(Search, 8)
@@ -1883,17 +2063,17 @@ function Library:CreateWindow(config)
 		end)
 	end)
 	local UserLbl = label(Profile, { Text = LocalPlayer.DisplayName, Font = Enum.Font.GothamBold, TextSize = 11, Position = UDim2.fromOffset(50, 9), Size = UDim2.new(1, -54, 0, 14), TextTruncate = Enum.TextTruncate.AtEnd }, "Text")
-	local UptimeLbl = label(Profile, { Text = "Uptime: 00:00:00", TextSize = 9, Position = UDim2.fromOffset(50, 26), Size = UDim2.new(1, -54, 0, 14) }, "SubText")
+	local UptimeLbl = label(Profile, { Text = T("side_uptime") .. "00:00:00", TextSize = 9, Position = UDim2.fromOffset(50, 26), Size = UDim2.new(1, -54, 0, 14) }, "SubText")
 	task.spawn(function()
 		local t0 = tick()
 		while task.wait(1) do
 			if not UptimeLbl.Parent then break end
 			local e = math.floor(tick() - t0)
-			local rem = Library:GetKeyRemaining()
+			local rem = Library:GetDisplayRemaining()
 			if rem and (e // 4) % 2 == 1 then
-				UptimeLbl.Text = rem == math.huge and "Key: ตลอดชีพ" or ("Key: " .. Library:FormatTime(rem))
+				UptimeLbl.Text = T("side_key") .. Library:FormatTime(rem)
 			else
-				UptimeLbl.Text = string.format("Uptime: %02d:%02d:%02d", e // 3600, (e % 3600) // 60, e % 60)
+				UptimeLbl.Text = T("side_uptime") .. string.format("%02d:%02d:%02d", e // 3600, (e % 3600) // 60, e % 60)
 			end
 		end
 	end)
@@ -1944,14 +2124,19 @@ function Library:CreateWindow(config)
 	local MCard = new("Frame", { Size = UDim2.fromOffset(260, 130), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 0.05, ZIndex = 101, Parent = Modal }, { BackgroundColor3 = "Background" })
 	corner(MCard, 8)
 	stroke(MCard, "Accent", 0.5)
-	label(MCard, { Text = "Exit Confirmation", Font = Enum.Font.GothamBold, TextSize = 13, Position = UDim2.fromOffset(14, 14), Size = UDim2.new(1, -28, 0, 20), ZIndex = 102 }, "Text")
-	label(MCard, { Text = "Are you sure you want to close the menu?", TextSize = 11, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(14, 38), Size = UDim2.new(1, -28, 0, 30), ZIndex = 102 }, "SubText")
-	local YesBtn = new("TextButton", { Text = "Close", Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = Color3.new(1, 1, 1), Size = UDim2.new(0.5, -14, 0, 30), Position = UDim2.new(0, 10, 1, -40), AutoButtonColor = false, ZIndex = 103, Parent = MCard }, { BackgroundColor3 = "Error" })
+	local MTitle = label(MCard, { Text = T("modal_title"), Font = Enum.Font.GothamBold, TextSize = 13, Position = UDim2.fromOffset(14, 14), Size = UDim2.new(1, -28, 0, 20), ZIndex = 102 }, "Text")
+	local MMsg = label(MCard, { Text = T("modal_msg"), TextSize = 11, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(14, 38), Size = UDim2.new(1, -28, 0, 30), ZIndex = 102 }, "SubText")
+	local YesBtn = new("TextButton", { Text = T("modal_close"), Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = Color3.new(1, 1, 1), Size = UDim2.new(0.5, -14, 0, 30), Position = UDim2.new(0, 10, 1, -40), AutoButtonColor = false, ZIndex = 103, Parent = MCard }, { BackgroundColor3 = "Error" })
 	corner(YesBtn, 6)
-	local NoBtn = new("TextButton", { Text = "Cancel", Font = Enum.Font.GothamMedium, TextSize = 11, Size = UDim2.new(0.5, -14, 0, 30), Position = UDim2.new(0.5, 4, 1, -40), BackgroundTransparency = 0.3, AutoButtonColor = false, ZIndex = 103, Parent = MCard }, { BackgroundColor3 = "Card", TextColor3 = "Text" })
+	local NoBtn = new("TextButton", { Text = T("modal_cancel"), Font = Enum.Font.GothamMedium, TextSize = 11, Size = UDim2.new(0.5, -14, 0, 30), Position = UDim2.new(0.5, 4, 1, -40), BackgroundTransparency = 0.3, AutoButtonColor = false, ZIndex = 103, Parent = MCard }, { BackgroundColor3 = "Card", TextColor3 = "Text" })
 	corner(NoBtn, 6)
 	NoBtn.MouseButton1Click:Connect(function() Modal.Visible = false end)
 	YesBtn.MouseButton1Click:Connect(function() Window:FadeDestroy() end)
+	Window._applyStatic = function()
+		Search.PlaceholderText = T("search_tabs")
+		MTitle.Text, MMsg.Text = T("modal_title"), T("modal_msg")
+		YesBtn.Text, NoBtn.Text = T("modal_close"), T("modal_cancel")
+	end
 
 	-- ย่อ / ขยาย / ปรับขนาด
 	local isMin, isMax = false, false
@@ -1959,10 +2144,25 @@ function Library:CreateWindow(config)
 	local normalPos = Main.Position
 	local activeTween
 	local Grip = new("TextButton", {
-		Text = "◢", Font = Enum.Font.GothamBold, TextSize = 11, Size = UDim2.fromOffset(18, 18), AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -3, 1, -3), BackgroundTransparency = 1, AutoButtonColor = false, ZIndex = 50, Parent = Main,
-	}, { TextColor3 = "SubText" })
+		Text = "◢", Font = Enum.Font.GothamBold, TextSize = 13, Size = UDim2.fromOffset(24, 24), AnchorPoint = Vector2.new(0, 0),
+		Position = UDim2.fromOffset(-500, -500), BackgroundTransparency = 0.3, AutoButtonColor = false, ZIndex = 50, Visible = false, Parent = ScreenGui,
+	}, { TextColor3 = "SubText", BackgroundColor3 = "Card" })
+	corner(Grip, 6)
+	stroke(Grip, "Stroke", 0.4)
 	local sizeConstraint = Main:FindFirstChildOfClass("UISizeConstraint")
+
+	-- ที่จับลาก/ปรับขนาดอยู่นอกหน้าต่าง (ใต้หน้าต่าง + มุมขวาล่างด้านนอก) ตามหน้าต่างทุกเฟรม
+	conn(RunService.RenderStepped, function()
+		if not Main.Parent then return end
+		local shown = Main.Visible and Window._shown and Main.GroupTransparency < 0.9
+		DragHit.Visible = shown
+		Grip.Visible = shown and not isMin and not isMax
+		if not shown then return end
+		local p, sz, vpz = Main.AbsolutePosition, Main.AbsoluteSize, ScreenGui.AbsoluteSize
+		local bottom = p.Y + sz.Y
+		DragHit.Position = UDim2.fromOffset(math.floor(p.X + sz.X / 2), math.floor(math.min(bottom + 4, vpz.Y - 22)))
+		Grip.Position = UDim2.fromOffset(math.floor(math.min(p.X + sz.X + 4, vpz.X - 24)), math.floor(math.min(bottom + 4, vpz.Y - 24)))
+	end)
 
 	Main:GetPropertyChangedSignal("Position"):Connect(function() if isMin then lastMinPos = Main.Position end end)
 
@@ -2061,6 +2261,27 @@ function Library:CreateWindow(config)
 		end)
 	end)
 
+	-- ตัวอักษรปรับตามขนาดหน้าต่าง: ขยาย = ใหญ่ขึ้น / หด = เล็กลง (อ่านง่ายทุกขนาด)
+	local textScale = 1
+	local function styleText(o)
+		if o:IsA("TextLabel") or o:IsA("TextButton") or o:IsA("TextBox") then
+			local b = o:GetAttribute("BaseTS")
+			if not b then b = o.TextSize; o:SetAttribute("BaseTS", b) end
+			o.TextSize = math.max(8, math.floor(b * textScale + 0.5))
+		end
+	end
+	local function applyTextScale(force)
+		local sz = Main.Size
+		if sz.Y.Offset < 200 then return end -- ตอนย่อหน้าต่างไม่ปรับ
+		local f = math.clamp(math.min(sz.X.Offset / 680, sz.Y.Offset / 460), 0.8, 1.3)
+		f = math.floor(f * 20 + 0.5) / 20
+		if f == textScale and not force then return end
+		textScale = f
+		for _, o in ipairs(Main:GetDescendants()) do styleText(o) end
+	end
+	conn(Main.DescendantAdded, styleText)
+	conn(Main:GetPropertyChangedSignal("Size"), function() applyTextScale(false) end)
+
 	-- ปุ่มเปิด/ปิดเมนูบนคีย์บอร์ด + ปุ่มลอยสำหรับมือถือ
 	conn(UserInputService.InputBegan, function(input, gpe)
 		if gpe or Library._listening then return end
@@ -2081,8 +2302,9 @@ function Library:CreateWindow(config)
 		Window.AccountTab = Window:_buildAccount(config)
 	end
 	if config.Settings ~= false then
-		Window:_buildSettings()
+		Window.SettingsTab = Window:_buildSettings()
 	end
+	applyTextScale(true)
 	-- ถ้าไม่มีแท็บผู้ใช้เลย ให้เปิด Settings เป็นหน้าแรก
 	task.defer(function()
 		if not Window.ActiveTab then
