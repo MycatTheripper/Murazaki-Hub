@@ -11,8 +11,8 @@ local LocalPlayer = Players.LocalPlayer
 local Library = {
 	Version = "2.0.0",
 	Flags = {}, Elements = {}, Windows = {},
-	Themes = {}, ThemeOrder = {}, Theme = {}, ThemeName = "blue", Lang = "th",
-	Folder = "VortexUI", ConfigName = "main",
+	Themes = {}, ThemeOrder = {}, Theme = {}, ThemeName = "Murasaki", Lang = "th",
+	Folder = "MurazakiUI", ConfigName = "main",
 	AutoSave = true, FireOnInit = true,
 	-- >>> ใส่ค่า Supabase ตรงนี้ที่เดียว (สคริปต์ผู้ใช้ไม่ต้องใส่อีก) <<<
 	Supabase = {
@@ -124,7 +124,7 @@ local function rgb(r, g, b) return Color3.fromRGB(r, g, b) end
 local function safe(fn, ...)
 	if type(fn) ~= "function" then return end
 	local ok, err = pcall(fn, ...)
-	if not ok then warn("[VortexUI] callback error: " .. tostring(err)) end
+	if not ok then warn("[MurazakiUI] callback error: " .. tostring(err)) end
 end
 
 local function tween(obj, props, dur, style, dir)
@@ -254,6 +254,12 @@ addTheme("rose", "Rose", lib(rgb(20, 14, 17), rgb(25, 17, 21), rgb(33, 23, 28), 
 addTheme("forest", "Forest", lib(rgb(12, 19, 16), rgb(15, 24, 20), rgb(22, 34, 28), rgb(38, 58, 48), rgb(228, 244, 236), rgb(124, 154, 138), rgb(80, 200, 140)))
 addTheme("honey", "Honey", lib(rgb(19, 16, 11), rgb(24, 20, 13), rgb(32, 27, 18), rgb(56, 48, 32), rgb(246, 238, 224), rgb(166, 150, 120), rgb(240, 180, 70)))
 addTheme("iris", "Iris", lib(rgb(16, 13, 22), rgb(20, 16, 28), rgb(28, 23, 39), rgb(49, 41, 68), rgb(238, 232, 248), rgb(146, 134, 170), rgb(170, 120, 255)))
+
+-- ม่วง Hollow Purple (สไตล์ Murasaki / Gojo): ม่วงเข้มลึก + ม่วงสว่างเรืองแสง + ฟ้า Six Eyes
+addTheme("Murasaki", "Hollow Purple", {
+	Background = rgb(13, 8, 26), Sidebar = rgb(9, 5, 20), Card = rgb(24, 14, 46), CardHover = rgb(38, 22, 70),
+	Accent = rgb(176, 96, 255), Accent2 = rgb(86, 196, 255), Text = rgb(246, 240, 255), SubText = rgb(164, 142, 205), Stroke = rgb(66, 40, 110),
+})
 
 local function resolveTheme(name)
 	if name == nil then return nil end
@@ -1563,12 +1569,12 @@ function Library:KeySystem(cfg)
 	if type(self._config["ui.accent"]) == "string" then self._accent = fromHex(self._config["ui.accent"]) end
 	self:_loadPreset(resolveTheme(self._config["ui.theme"]) or resolveTheme(cfg.Theme) or "blue")
 
-	local Gui = new("ScreenGui", { Name = "VortexKey", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 1000, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
+	local Gui = new("ScreenGui", { Name = "MurazakiKey", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 1000, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
 	parentGui(Gui)
 	table.insert(self._guis, Gui)
 
 	local Backdrop = new("CanvasGroup", {
-		Size = UDim2.fromScale(1, 1), BackgroundTransparency = 0.5, BorderSizePixel = 0, GroupTransparency = 1, Active = true, Parent = Gui,
+		Size = UDim2.fromScale(1, 1), BackgroundTransparency = 0.5, BorderSizePixel = 0, GroupTransparency = 1, Parent = Gui,
 	}, { BackgroundColor3 = "Background" })
 
 	local vpK = viewport()
@@ -1582,6 +1588,12 @@ function Library:KeySystem(cfg)
 	corner(Card, 14)
 	local CStroke = stroke(Card, "Accent", 0.2)
 	CStroke.Thickness = 1.6
+	-- ขอบรุ้ง เปลี่ยนสีอัตโนมัติ (ไล่สีหมุนรอบการ์ด)
+	CStroke:SetAttribute("Bind_Color", nil)
+	CStroke.Color = Color3.new(1, 1, 1)
+	local rainbow = {}
+	for i = 0, 6 do rainbow[#rainbow + 1] = ColorSequenceKeypoint.new(i / 6, Color3.fromHSV(i / 6, 0.8, 1)) end
+	local RainbowGrad = new("UIGradient", { Color = ColorSequence.new(rainbow), Parent = CStroke })
 	local CScale = new("UIScale", { Scale = 0.9, Parent = Card })
 
 	-- หัวการ์ด: โลโก้เล็ก + ชื่อ + คำอธิบายใต้ชื่อ
@@ -1656,7 +1668,8 @@ function Library:KeySystem(cfg)
 	local busy, finished, result = false, false, false
 	local done = Instance.new("BindableEvent")
 	local hb = RunService.Heartbeat:Connect(function()
-		CStroke.Transparency = 0.15 + 0.2 * (0.5 + 0.5 * math.sin(os.clock() * 2.2))
+		CStroke.Transparency = 0.1 + 0.15 * (0.5 + 0.5 * math.sin(os.clock() * 2.2))
+		RainbowGrad.Rotation = (os.clock() * 80) % 360
 	end)
 	Gui.Destroying:Connect(function()
 		finished = true
@@ -1831,7 +1844,7 @@ function WindowMT:_buildAccount(config)
 				task.wait(3)
 			end
 			if not p and planV.Parent then
-				warn("[VortexUI] FetchPlan: " .. tostring(perr))
+				warn("[MurazakiUI] FetchPlan: " .. tostring(perr))
 				Library:Notify("Plan", tostring(perr), 6)
 			end
 			if not planV.Parent then return end
@@ -1941,12 +1954,12 @@ function Library:CreateWindow(config)
 		local ok = self:KeySystem(config.KeySystem)
 		if not ok then
 			self:Unload()
-			error("[VortexUI] ไม่ผ่านระบบคีย์ / ยกเลิก", 0)
+			error("[MurazakiUI] ไม่ผ่านระบบคีย์ / ยกเลิก", 0)
 		end
 	end
 	self:_init()
 
-	local titleText = config.Title or config[1] or "Vortex UI"
+	local titleText = config.Title or config[1] or "Murazaki UI"
 	local subtitleText = config.Subtitle or ("Universal | v" .. self.Version)
 	local iconId = config.Icon or ""
 	local closeAction = config.CloseAction or "Confirm"
@@ -1966,7 +1979,7 @@ function Library:CreateWindow(config)
 		if ok and k then toggleKey = k end
 	end
 
-	local ScreenGui = new("ScreenGui", { Name = "VortexUI", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 999, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
+	local ScreenGui = new("ScreenGui", { Name = "MurazakiUI", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 999, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
 	parentGui(ScreenGui)
 	table.insert(self._guis, ScreenGui)
 
@@ -1992,7 +2005,7 @@ function Library:CreateWindow(config)
 
 	local Main = new("CanvasGroup", {
 		Name = "MainFrame", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(W, H), Position = UDim2.fromScale(0.5, 0.5),
-		BackgroundTransparency = 0.12, BorderSizePixel = 0, ClipsDescendants = true, GroupTransparency = 1, Parent = ScreenGui,
+		BackgroundTransparency = 0.12, BorderSizePixel = 0, ClipsDescendants = true, GroupTransparency = 1, Visible = false, Parent = ScreenGui,
 	}, { BackgroundColor3 = "Background" })
 	corner(Main, 10)
 	new("UISizeConstraint", { MinSize = Vector2.new(300, 300), Parent = Main })
@@ -2277,12 +2290,13 @@ function Library:CreateWindow(config)
 	local function clampCenter(cx, cy)
 		local vpz, s = ScreenGui.AbsoluteSize, Main.AbsoluteSize
 		local hx, hy = s.X / 2, s.Y / 2
-		cx = (s.X >= vpz.X) and vpz.X / 2 or math.clamp(cx, hx, vpz.X - hx)
-		cy = (s.Y >= vpz.Y - 30) and (vpz.Y - 30) / 2 or math.clamp(cy, hy, vpz.Y - 30 - hy)
+		local M = 10 -- ช่องว่างจากขอบจอ
+		cx = (s.X >= vpz.X - 2 * M) and vpz.X / 2 or math.clamp(cx, hx + M, vpz.X - M - hx)
+		cy = (s.Y >= vpz.Y - 30 - M) and (vpz.Y - 30) / 2 or math.clamp(cy, hy + M, vpz.Y - 30 - hy)
 		return cx, cy
 	end
 
-	DragHit.InputBegan:Connect(function(input)
+	local function beginMove(input)
 		if not isPress(input) or isMax then return end
 		local startMouse = input.Position
 		local sx, sy = toCenter(Main.Position)
@@ -2291,7 +2305,9 @@ function Library:CreateWindow(config)
 			local cx, cy = clampCenter(sx + d.X, sy + d.Y)
 			Main.Position = UDim2.fromOffset(cx, cy)
 		end)
-	end)
+	end
+	DragHit.InputBegan:Connect(beginMove)
+	TopBar.InputBegan:Connect(beginMove) -- ลากจากพื้นที่ว่างบนหัวหน้าต่างได้ (ปุ่ม -, □, × ยังกดได้ปกติ)
 
 	-- ปรับขนาดจากมุมขวาล่าง: ขยายออกพร้อมกันทุกมุม (จุดกึ่งกลางอยู่ที่เดิม)
 	Grip.InputBegan:Connect(function(input)
@@ -2300,8 +2316,8 @@ function Library:CreateWindow(config)
 		local cx, cy = toCenter(Main.Position)
 		startDrag(function(i)
 			local d, vpz = i.Position - startMouse, ScreenGui.AbsoluteSize
-			local maxW = math.max(300, math.min(2 * cx, 2 * (vpz.X - cx)))
-			local maxH = math.max(300, math.min(2 * cy, 2 * (vpz.Y - 30 - cy)))
+			local maxW = math.max(300, math.min(2 * (cx - 10), 2 * (vpz.X - 10 - cx)))
+			local maxH = math.max(300, math.min(2 * (cy - 10), 2 * (vpz.Y - 30 - cy)))
 			local nw = math.clamp(startSize.X + d.X * 2, 300, maxW)
 			local nh = math.clamp(startSize.Y + d.Y * 2, 300, maxH)
 			Main.Size = UDim2.fromOffset(nw, nh)
@@ -2366,6 +2382,7 @@ function Library:CreateWindow(config)
 	Window.Loaded = false
 	local function openUI()
 		Window.Loaded = true
+		Main.Visible = true
 		tween(Main, { GroupTransparency = 0 }, 0.25)
 		tween(MainScale, { Scale = 1 }, 0.3, Enum.EasingStyle.Back)
 		-- เส้นขอบ/เส้นหัวขยับเบาๆ
@@ -2391,7 +2408,7 @@ function Library:CreateWindow(config)
 	-- หน้าโหลดสไตล์ Rayfield: โลโก้ + ชื่อ กลางจอ ไม่มีกรอบ เห็นเกมข้างหลัง
 	local Loader = new("CanvasGroup", {
 		Name = "LoadingScreen", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0,
-		Active = true, ZIndex = 500, GroupTransparency = 1, Parent = ScreenGui,
+		ZIndex = 500, GroupTransparency = 1, Parent = ScreenGui,
 	}, { BackgroundColor3 = "Background" })
 
 	local tSize = math.clamp(math.floor(viewport().X / 24), 26, 44)
@@ -2470,9 +2487,9 @@ end
 
 -- ถ้าเคยรันสคริปต์นี้ไว้แล้ว ให้ปิดตัวเก่าก่อน กันซ้อน
 local env = (type(getgenv) == "function" and getgenv()) or _G
-if env.__VortexLibrary and env.__VortexLibrary ~= Library then
-	pcall(function() env.__VortexLibrary:Unload() end)
+if env.__MurazakiLibrary and env.__MurazakiLibrary ~= Library then
+	pcall(function() env.__MurazakiLibrary:Unload() end)
 end
-env.__VortexLibrary = Library
+env.__MurazakiLibrary = Library
 
 return Library
