@@ -50,7 +50,7 @@ local I18N = {
 		acc_lifetime = "ตลอดชีพ",
 		acc_never_sub = "ไม่หมดอายุ • ใช้งานมา %s",
 		acc_key_age = "ใช้คีย์นี้มาแล้ว %s",
-		age_dh = "%d วัน %d ชม.", age_hm = "%d ชม. %d นาที",
+		acc_keyage = "อายุคีย์", age_d = "%d วัน", age_h = "%d ชั่วโมง", age_hm = "%d ชั่วโมง %d นาที", age_m = "%d นาที",
 		acc_signout = "ออกจากระบบ", acc_signout_desc = "ลบคีย์ที่บันทึกไว้และปิดเมนู",
 		signout_notify = "ออกจากระบบแล้ว ลบคีย์ที่บันทึกไว้",
 		r_invalid = "คีย์ไม่ถูกต้อง", r_expired = "คีย์หมดอายุแล้ว", r_revoked = "คีย์ถูกยกเลิกแล้ว",
@@ -83,7 +83,7 @@ local I18N = {
 		acc_lifetime = "Lifetime",
 		acc_never_sub = "Never expires • active for %s",
 		acc_key_age = "Key in use for %s",
-		age_dh = "%dd %dh", age_hm = "%dh %dm",
+		acc_keyage = "Key Age", age_d = "%dd", age_h = "%dh", age_hm = "%dh %dm", age_m = "%dm",
 		acc_signout = "Sign Out", acc_signout_desc = "Remove saved key and close menu",
 		signout_notify = "Signed out, saved key removed",
 		r_invalid = "Invalid key", r_expired = "Key has expired", r_revoked = "Key has been revoked",
@@ -1379,12 +1379,13 @@ function Library:FormatTime(s)
 	return string.format("%02d:%02d:%02d", h, m, sec)
 end
 
--- อายุการใช้คีย์: "3 วัน 4 ชม." / "5 ชม. 20 นาที"
+-- อายุคีย์ (นับขึ้น ไม่มีลด): <1 ชม. = นาที | <1 วัน = "1 ชั่วโมง" / "1 ชั่วโมง 30 นาที" | >=1 วัน = "30 วัน"
 function Library:FormatAge(s)
 	s = math.max(0, math.floor(s or 0))
 	local d, h, m = s // 86400, (s % 86400) // 3600, (s % 3600) // 60
-	if d > 0 then return T("age_dh", d, h) end
-	return T("age_hm", h, m)
+	if d > 0 then return T("age_d", d) end
+	if h > 0 then return m > 0 and T("age_hm", h, m) or T("age_h", h) end
+	return T("age_m", m)
 end
 
 -- เหลือเวลากี่วินาที (nil = ยังไม่ผ่านคีย์, math.huge = ตลอดชีพ) ใช้ตัดสินหมดอายุจริง
@@ -1437,27 +1438,46 @@ local function resolveKeyCfg(cfg)
 	return cfg
 end
 
--- ดึงค่า plan ของคีย์จากตาราง Supabase (คืน nil ถ้าดึงไม่ได้)
+-- ดึงค่า plan ของคีย์ (text) : ลอง RPC get_plan ก่อน แล้วค่อยอ่านตรงจากตาราง
+-- คืน plan หรือ nil + ข้อความ error (เอาไว้ debug)
 function Library:FetchPlan(key)
 	key = tostring(key or "")
-	if key == "" then return nil end
+	if key == "" then return nil, "empty key" end
 	local sb = self.Supabase
+	local errs = {}
+
+	local d, e = self:_rpc({ SupabaseUrl = sb.Url, SupabaseKey = sb.Key }, "get_plan", { p_key = key })
+	if type(d) == "table" and d.plan ~= nil and tostring(d.plan) ~= "" then return tostring(d.plan) end
+	table.insert(errs, "rpc get_plan: " .. tostring(e or "no plan"))
+
 	local url = (tostring(sb.Url or ""):gsub("/+$", ""))
 	local headers = { ["apikey"] = sb.Key }
 	if not tostring(sb.Key):find("^sb_") then headers["Authorization"] = "Bearer " .. tostring(sb.Key) end
 	local col = sb.PlanColumn or "plan"
 	local ok, res = httpRequest({
-		Url = string.format("%s/rest/v1/%s?%s=eq.%s&select=%s&limit=1", url, sb.Table or "keys", sb.KeyColumn or "key", HttpService:UrlEncode(key), col),
+		Url = string.format("%s/rest/v1/%s?%s=eq.%s&select=%s&limit=1", url, sb.Table or "license_keys", sb.KeyColumn or "key", HttpService:UrlEncode(key), col),
 		Method = "GET",
 		Headers = headers,
 	})
-	if not ok or type(res) ~= "table" then return nil end
+	if not ok or type(res) ~= "table" then
+		table.insert(errs, "table: network")
+		return nil, table.concat(errs, " | ")
+	end
 	local code = res.StatusCode or res.status_code or 0
-	if code < 200 or code >= 300 then return nil end
+	if code < 200 or code >= 300 then
+		table.insert(errs, "table: http " .. tostring(code))
+		return nil, table.concat(errs, " | ")
+	end
 	local ok2, data = pcall(function() return HttpService:JSONDecode(res.Body or res.body or "") end)
-	if not ok2 or type(data) ~= "table" or type(data[1]) ~= "table" then return nil end
+	if not ok2 or type(data) ~= "table" or type(data[1]) ~= "table" then
+		table.insert(errs, "table: 0 rows (RLS บล็อก / ชื่อคอลัมน์คีย์ไม่ตรง)")
+		return nil, table.concat(errs, " | ")
+	end
 	local v = data[1][col]
-	if v == nil or v == "" then return nil end
+	if v == nil or v == "" then
+		table.insert(errs, "table: plan ว่าง")
+		return nil, table.concat(errs, " | ")
+	end
 	return tostring(v)
 end
 
@@ -1784,8 +1804,8 @@ function WindowMT:_buildAccount(config)
 	local r2 = row(56)
 	local maskedKey = "-"
 	if info and info.key then maskedKey = info.key:sub(1, math.min(8, #info.key)) .. string.rep("*", 8) end
-	local _, keySub = cell(r2, false, T("acc_key"), maskedKey, " ")
-	cell(r2, true, T("acc_age"), LocalPlayer.AccountAge .. " " .. T("acc_days"))
+	cell(r2, false, T("acc_key"), maskedKey)
+	local ageV = cell(r2, true, T("acc_keyage"), "-")
 	divider()
 
 	-- แถว 3: แพลน (ดึงจากตาราง Supabase) | เวลาที่เหลือ (นับสด)
@@ -1803,11 +1823,15 @@ function WindowMT:_buildAccount(config)
 	local planV = cell(r3, false, T("acc_plan"), plan, planSub)
 	if info and not info.plan then
 		task.spawn(function()
-			local p
+			local p, perr
 			for _ = 1, 3 do
-				p = Library:FetchPlan(info.key)
+				p, perr = Library:FetchPlan(info.key)
 				if p or not planV.Parent then break end
 				task.wait(3)
+			end
+			if not p and planV.Parent then
+				warn("[VortexUI] FetchPlan: " .. tostring(perr))
+				Library:Notify("Plan", tostring(perr), 6)
 			end
 			if not planV.Parent then return end
 			if p then
@@ -1845,9 +1869,9 @@ function WindowMT:_buildAccount(config)
 			if k and k.ok then
 				if k._actTs == nil then k._actTs = isoToTs(k.activatedAt) or false end
 				local secs = k._actTs and (DateTime.now().UnixTimestamp - k._actTs) or (os.clock() - LOAD_CLOCK)
-				keySub.Text = T("acc_key_age", Library:FormatAge(secs))
+				ageV.Text = Library:FormatAge(secs)
 			else
-				keySub.Text = ""
+				ageV.Text = "-"
 			end
 			task.wait(1)
 		end
@@ -2002,13 +2026,16 @@ function Library:CreateWindow(config)
 		Size = UDim2.fromOffset(120, 22), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(-500, -500), ZIndex = 30, Visible = false, Parent = ScreenGui,
 	})
 	local DragPill = new("Frame", {
-		Size = UDim2.fromOffset(60, 5), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 8),
-		BackgroundTransparency = 0.2, ZIndex = 31, Parent = DragHit,
+		Size = UDim2.fromOffset(48, 3), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2),
+		BackgroundTransparency = 0.25, BorderSizePixel = 0, ZIndex = 31, Parent = DragHit,
 	}, { BackgroundColor3 = "SubText" })
 	corner(DragPill, 3)
-	stroke(DragPill, "Text", 0.7)
-	DragHit.MouseEnter:Connect(function() tween(DragPill, { BackgroundTransparency = 0.1 }, 0.12) end)
-	DragHit.MouseLeave:Connect(function() tween(DragPill, { BackgroundTransparency = 0.2 }, 0.15) end)
+	DragHit.MouseEnter:Connect(function()
+		tween(DragPill, { Size = UDim2.fromOffset(76, 6), BackgroundTransparency = 0.05, BackgroundColor3 = Theme.Text }, 0.18, Enum.EasingStyle.Back)
+	end)
+	DragHit.MouseLeave:Connect(function()
+		tween(DragPill, { Size = UDim2.fromOffset(48, 3), BackgroundTransparency = 0.25, BackgroundColor3 = Theme.SubText }, 0.18)
+	end)
 
 	local TopLine = new("Frame", { Size = UDim2.new(1, 0, 0, 1), Position = UDim2.fromOffset(0, 48), BorderSizePixel = 0, BackgroundTransparency = 0.35, Parent = Main })
 	local LineGrad = new("UIGradient", { Parent = TopLine })
@@ -2144,11 +2171,17 @@ function Library:CreateWindow(config)
 	local normalPos = Main.Position
 	local activeTween
 	local Grip = new("TextButton", {
-		Text = "◢", Font = Enum.Font.GothamBold, TextSize = 13, Size = UDim2.fromOffset(24, 24), AnchorPoint = Vector2.new(0, 0),
-		Position = UDim2.fromOffset(-500, -500), BackgroundTransparency = 0.3, AutoButtonColor = false, ZIndex = 50, Visible = false, Parent = ScreenGui,
-	}, { TextColor3 = "SubText", BackgroundColor3 = "Card" })
-	corner(Grip, 6)
-	stroke(Grip, "Stroke", 0.4)
+		Text = "", Size = UDim2.fromOffset(24, 24), AnchorPoint = Vector2.new(0, 0), ClipsDescendants = true,
+		Position = UDim2.fromOffset(-500, -500), BackgroundTransparency = 1, AutoButtonColor = false, ZIndex = 50, Visible = false, Parent = ScreenGui,
+	})
+	-- วงกลมใหญ่ตัดเหลือแค่เสี้ยวขวาล่าง = เส้นโค้งรับกับมุมหน้าต่าง (รัศมีมุม 10 + ห่าง 3)
+	local GripRing = new("Frame", {
+		Size = UDim2.fromOffset(26, 26), Position = UDim2.fromOffset(-13, -13), BackgroundTransparency = 1, ZIndex = 51, Parent = Grip,
+	})
+	corner(GripRing, 13)
+	local GripStroke = new("UIStroke", { Thickness = 2.5, Transparency = 0.25, Parent = GripRing }, { Color = "SubText" })
+	Grip.MouseEnter:Connect(function() tween(GripStroke, { Thickness = 4, Transparency = 0, Color = Theme.Text }, 0.15) end)
+	Grip.MouseLeave:Connect(function() tween(GripStroke, { Thickness = 2.5, Transparency = 0.25, Color = Theme.SubText }, 0.18) end)
 	local sizeConstraint = Main:FindFirstChildOfClass("UISizeConstraint")
 
 	-- ที่จับลาก/ปรับขนาดอยู่นอกหน้าต่าง (ใต้หน้าต่าง + มุมขวาล่างด้านนอก) ตามหน้าต่างทุกเฟรม
@@ -2160,8 +2193,8 @@ function Library:CreateWindow(config)
 		if not shown then return end
 		local p, sz, vpz = Main.AbsolutePosition, Main.AbsoluteSize, ScreenGui.AbsoluteSize
 		local bottom = p.Y + sz.Y
-		DragHit.Position = UDim2.fromOffset(math.floor(p.X + sz.X / 2), math.floor(math.min(bottom + 4, vpz.Y - 22)))
-		Grip.Position = UDim2.fromOffset(math.floor(math.min(p.X + sz.X + 4, vpz.X - 24)), math.floor(math.min(bottom + 4, vpz.Y - 24)))
+		DragHit.Position = UDim2.fromOffset(math.floor(p.X + sz.X / 2), math.floor(math.min(bottom + 1, vpz.Y - 22)))
+		Grip.Position = UDim2.fromOffset(math.floor(math.min(p.X + sz.X - 10, vpz.X - 18)), math.floor(math.min(bottom - 10, vpz.Y - 18)))
 	end)
 
 	Main:GetPropertyChangedSignal("Position"):Connect(function() if isMin then lastMinPos = Main.Position end end)
