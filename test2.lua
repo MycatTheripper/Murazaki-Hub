@@ -1976,7 +1976,7 @@ function Library:CreateWindow(config)
 	local vp = viewport()
 	local want = config.Size or UDim2.fromOffset(680, 460)
 	local W = math.clamp(want.X.Offset, 300, math.max(300, vp.X * 0.94))
-	local H = math.clamp(want.Y.Offset, 300, math.max(300, vp.Y * 0.92))
+	local H = math.clamp(want.Y.Offset, 300, math.max(300, vp.Y * 0.88))
 
 	local Main = new("CanvasGroup", {
 		Name = "MainFrame", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(W, H), Position = UDim2.fromScale(0.5, 0.5),
@@ -2191,10 +2191,11 @@ function Library:CreateWindow(config)
 		DragHit.Visible = shown
 		Grip.Visible = shown and not isMin and not isMax
 		if not shown then return end
-		local p, sz, vpz = Main.AbsolutePosition, Main.AbsoluteSize, ScreenGui.AbsoluteSize
+		local sg = ScreenGui.AbsolutePosition
+		local p, sz, vpz = Main.AbsolutePosition - sg, Main.AbsoluteSize, ScreenGui.AbsoluteSize
 		local bottom = p.Y + sz.Y
-		DragHit.Position = UDim2.fromOffset(math.floor(p.X + sz.X / 2), math.floor(math.min(bottom + 1, vpz.Y - 22)))
-		Grip.Position = UDim2.fromOffset(math.floor(math.min(p.X + sz.X - 10, vpz.X - 18)), math.floor(math.min(bottom - 10, vpz.Y - 18)))
+		DragHit.Position = UDim2.fromOffset(math.floor(p.X + sz.X / 2), math.floor(bottom + 1))
+		Grip.Position = UDim2.fromOffset(math.floor(math.min(p.X + sz.X - 10, vpz.X - 18)), math.floor(bottom - 10))
 	end)
 
 	Main:GetPropertyChangedSignal("Position"):Connect(function() if isMin then lastMinPos = Main.Position end end)
@@ -2226,7 +2227,7 @@ function Library:CreateWindow(config)
 		if state then
 			preMax = { Size = Main.Size, Pos = Main.Position }
 			local v = viewport()
-			tween(Main, { Size = UDim2.fromOffset(v.X - 24, v.Y - 24), Position = UDim2.fromScale(0.5, 0.5) })
+			tween(Main, { Size = UDim2.fromOffset(v.X - 24, v.Y - 24 - 30), Position = UDim2.new(0.5, 0, 0.5, -15) })
 		elseif preMax then
 			tween(Main, { Size = preMax.Size, Position = preMax.Pos })
 		end
@@ -2263,7 +2264,7 @@ function Library:CreateWindow(config)
 		local vpz, s = ScreenGui.AbsoluteSize, Main.AbsoluteSize
 		local hx, hy = s.X / 2, s.Y / 2
 		cx = (s.X >= vpz.X) and vpz.X / 2 or math.clamp(cx, hx, vpz.X - hx)
-		cy = (s.Y >= vpz.Y) and vpz.Y / 2 or math.clamp(cy, hy, vpz.Y - hy)
+		cy = (s.Y >= vpz.Y - 30) and (vpz.Y - 30) / 2 or math.clamp(cy, hy, vpz.Y - 30 - hy)
 		return cx, cy
 	end
 
@@ -2286,7 +2287,7 @@ function Library:CreateWindow(config)
 		startDrag(function(i)
 			local d, vpz = i.Position - startMouse, ScreenGui.AbsoluteSize
 			local maxW = math.max(300, math.min(2 * cx, 2 * (vpz.X - cx)))
-			local maxH = math.max(300, math.min(2 * cy, 2 * (vpz.Y - cy)))
+			local maxH = math.max(300, math.min(2 * cy, 2 * (vpz.Y - 30 - cy)))
 			local nw = math.clamp(startSize.X + d.X * 2, 300, maxW)
 			local nh = math.clamp(startSize.Y + d.Y * 2, 300, maxH)
 			Main.Size = UDim2.fromOffset(nw, nh)
