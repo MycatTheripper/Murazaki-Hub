@@ -14,11 +14,9 @@ local Library = {
 	Themes = {}, ThemeOrder = {}, Theme = {}, ThemeName = "Murasaki", Lang = "th",
 	Folder = "MurazakiUI", ConfigName = "main",
 	AutoSave = true, FireOnInit = true,
-	-- >>> ใส่ค่า Supabase ตรงนี้ที่เดียว (สคริปต์ผู้ใช้ไม่ต้องใส่อีก) <<<
 	Supabase = {
 		Url = "https://xhiavkxmtsuyphmifkfu.supabase.co",
 		Key = "sb_publishable_mPVKadPz1Uk5Tx10JF5Y_Q_v4kvmmuX",
-		-- ตารางคีย์ใน Supabase + ชื่อคอลัมน์ (แก้ให้ตรงกับตารางจริง)
 		Table = "license_keys", KeyColumn = "key", PlanColumn = "plan",
 	},
 	_config = {}, _conns = {}, _guis = {}, _paints = {}, _keybinds = {},
@@ -34,9 +32,6 @@ local activeDrag
 
 local LOAD_CLOCK = os.clock()
 
-----------------------------------------------------------------------
--- ภาษา / Language (th, en)
-----------------------------------------------------------------------
 local I18N = {
 	th = {
 		tab_account = "บัญชี", tab_settings = "ตั้งค่า",
@@ -116,9 +111,6 @@ function Library:_loadLang()
 	if l == "en" or l == "th" then self.Lang = l end
 end
 
-----------------------------------------------------------------------
--- Helpers
-----------------------------------------------------------------------
 local function rgb(r, g, b) return Color3.fromRGB(r, g, b) end
 
 local function safe(fn, ...)
@@ -143,7 +135,6 @@ local function isPress(input)
 	return input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch
 end
 
--- ระบบลาก (ใช้ร่วมกันทั้ง slider, ลากหน้าต่าง, ปรับขนาด)
 local function startDrag(fn) activeDrag = fn end
 
 local function viewport()
@@ -160,7 +151,6 @@ local function fromHex(s)
 	return Color3.fromRGB(tonumber(r, 16), tonumber(g, 16), tonumber(b, 16))
 end
 
--- ผูกสีของ Instance กับคีย์ธีม (จดไว้ใน Attribute เพื่อให้เปลี่ยนธีมสดได้แม่นยำ)
 local function setBind(inst, prop, key, anim)
 	inst:SetAttribute("Bind_" .. prop, key)
 	if anim then tween(inst, { [prop] = Theme[key] }, 0.15) else inst[prop] = Theme[key] end
@@ -197,15 +187,11 @@ local function label(parent, props, key)
 	return new("TextLabel", props, { TextColor3 = key or "Text" })
 end
 
--- เรียกทุกครั้งที่เปลี่ยนธีม (ใช้กับสิ่งที่ผูก Attribute ไม่ได้ เช่น Gradient)
 local function onTheme(inst, fn)
 	table.insert(Library._paints, { inst = inst, fn = fn })
 	fn()
 end
 
-----------------------------------------------------------------------
--- Themes
-----------------------------------------------------------------------
 local function lum(c) return 0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B end
 local function shiftHue(c)
 	local h, s, v = c:ToHSV()
@@ -225,7 +211,6 @@ local function lib(bg, side, card, stroke_, text, sub, accent)
 	return { Background = bg, Sidebar = side, Card = card, Stroke = stroke_, Text = text, SubText = sub, Accent = accent }
 end
 
--- ธีมจากไฟล์ txt เดิม
 addTheme("blue", "Default Blue", {
 	Background = rgb(18, 18, 18), Sidebar = rgb(14, 14, 14), Card = rgb(24, 24, 24), CardHover = rgb(32, 32, 40),
 	Accent = rgb(255, 255, 255), Accent2 = rgb(138, 90, 255), Text = rgb(240, 240, 240), SubText = rgb(130, 130, 130), Stroke = rgb(45, 45, 45),
@@ -246,7 +231,6 @@ addTheme("amber", "Amber Gold", {
 	Background = rgb(21, 18, 12), Sidebar = rgb(16, 13, 8), Card = rgb(36, 29, 18), CardHover = rgb(48, 38, 23),
 	Accent = rgb(224, 168, 61), Accent2 = rgb(138, 90, 44), Text = rgb(251, 241, 222), SubText = rgb(182, 166, 137), Stroke = rgb(58, 47, 28),
 })
--- ธีมจาก Library.lua
 addTheme("midnight", "Midnight", lib(rgb(15, 16, 20), rgb(19, 20, 25), rgb(25, 27, 33), rgb(44, 47, 58), rgb(232, 234, 240), rgb(138, 144, 160), rgb(124, 140, 255)))
 addTheme("graphite", "Graphite", lib(rgb(17, 17, 17), rgb(21, 21, 21), rgb(28, 28, 28), rgb(48, 48, 48), rgb(236, 236, 236), rgb(150, 150, 150), rgb(214, 214, 214)))
 addTheme("ocean", "Ocean", lib(rgb(11, 18, 24), rgb(14, 23, 31), rgb(20, 31, 41), rgb(35, 52, 66), rgb(226, 238, 246), rgb(120, 146, 163), rgb(74, 186, 214)))
@@ -254,8 +238,6 @@ addTheme("rose", "Rose", lib(rgb(20, 14, 17), rgb(25, 17, 21), rgb(33, 23, 28), 
 addTheme("forest", "Forest", lib(rgb(12, 19, 16), rgb(15, 24, 20), rgb(22, 34, 28), rgb(38, 58, 48), rgb(228, 244, 236), rgb(124, 154, 138), rgb(80, 200, 140)))
 addTheme("honey", "Honey", lib(rgb(19, 16, 11), rgb(24, 20, 13), rgb(32, 27, 18), rgb(56, 48, 32), rgb(246, 238, 224), rgb(166, 150, 120), rgb(240, 180, 70)))
 addTheme("iris", "Iris", lib(rgb(16, 13, 22), rgb(20, 16, 28), rgb(28, 23, 39), rgb(49, 41, 68), rgb(238, 232, 248), rgb(146, 134, 170), rgb(170, 120, 255)))
-
--- ม่วง Hollow Purple (สไตล์ Murasaki / Gojo): ม่วงเข้มลึก + ม่วงสว่างเรืองแสง + ฟ้า Six Eyes
 addTheme("Murasaki", "Hollow Purple", {
 	Background = rgb(13, 8, 26), Sidebar = rgb(9, 5, 20), Card = rgb(24, 14, 46), CardHover = rgb(38, 22, 70),
 	Accent = rgb(176, 96, 255), Accent2 = rgb(86, 196, 255), Text = rgb(246, 240, 255), SubText = rgb(164, 142, 205), Stroke = rgb(66, 40, 110),
@@ -289,7 +271,6 @@ function Library:_loadPreset(key)
 	self.ThemeName = key
 end
 
--- รีเฟรชสีทั้ง UI ตาม Attribute "Bind_<Property>" + มี Overlay จางๆ ให้นุ่มนวล
 local function repaintTheme(gui)
 	if not gui or not gui.Parent then return end
 	local overlay = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, ZIndex = 200, Parent = gui })
@@ -338,9 +319,6 @@ function Library:SetAccent(color)
 	self:_queueSave()
 end
 
-----------------------------------------------------------------------
--- Config (บันทึก/โหลดอัตโนมัติ)
-----------------------------------------------------------------------
 local function fsAvailable()
 	return type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function"
 end
@@ -415,9 +393,6 @@ function Library:_queueSave()
 	end)
 end
 
-----------------------------------------------------------------------
--- Notify / Tooltip / CFrame
-----------------------------------------------------------------------
 function Library:Notify(title, text, duration)
 	if not NotifHolder then return end
 	duration = tonumber(duration) or 3
@@ -504,9 +479,6 @@ function Library:Unload()
 	NotifHolder, TooltipFrame, TooltipLabel, activeDrag = nil, nil, nil, nil
 end
 
-----------------------------------------------------------------------
--- Element helpers
-----------------------------------------------------------------------
 local function nextOrder(tab)
 	tab._n = (tab._n or 0) + 1
 	return tab._n
@@ -542,7 +514,6 @@ local function emit(obj, silent)
 	if obj.Flag then Library:_queueSave() end
 end
 
--- การ์ดมาตรฐาน (36px) ที่ยุบ/ขยายได้ ใช้กับ Dropdown/ColorPicker/CFrame
 local function makeCard(tab, height)
 	local card = new("Frame", {
 		Size = UDim2.new(1, 0, 0, height or 36), BackgroundTransparency = 0.3, ClipsDescendants = true,
@@ -553,9 +524,6 @@ local function makeCard(tab, height)
 	return card
 end
 
-----------------------------------------------------------------------
--- TAB ELEMENTS
-----------------------------------------------------------------------
 function TabMT:CreateLabel(text)
 	local l = label(self.Page, {
 		Text = tostring(text or ""), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
@@ -1091,9 +1059,6 @@ function TabMT:CreateCFrameCopier(text)
 	return { GetCFrameString = function() return Library:GetCharacterCFrameString() end }
 end
 
-----------------------------------------------------------------------
--- WINDOW METHODS
-----------------------------------------------------------------------
 function WindowMT:SetIcon(id) if self.BrandIcon then self.BrandIcon.Image = id end end
 function WindowMT:SetTitle(t) self.TitleLabel.Text = tostring(t) end
 function WindowMT:SetSubtitle(t) self.SubtitleLabel.Text = tostring(t) end
@@ -1131,7 +1096,6 @@ function WindowMT:Minimize() self._setMin(true) end
 function WindowMT:Maximize() self._setMax(not self._maximized) end
 function WindowMT:ResetLayout() self._resetLayout() end
 
--- สร้างหน้า Account / Settings ใหม่ด้วยภาษาปัจจุบัน
 function WindowMT:_rebuildTabs()
 	if not (self.ScreenGui and self.ScreenGui.Parent) then return end
 	local cfg = self._cfg or {}
@@ -1302,9 +1266,6 @@ function WindowMT:_buildSettings()
 	return tab
 end
 
-----------------------------------------------------------------------
--- CREATE WINDOW
-----------------------------------------------------------------------
 local function parentGui(gui)
 	local targets = {}
 	if type(gethui) == "function" then table.insert(targets, function() return gethui() end) end
@@ -1323,9 +1284,6 @@ local function parentGui(gui)
 	end
 end
 
-----------------------------------------------------------------------
--- KEY SYSTEM (Supabase)
-----------------------------------------------------------------------
 local function httpRequest(opts)
 	local req = (type(request) == "function" and request)
 		or (type(http_request) == "function" and http_request)
@@ -1364,8 +1322,6 @@ local function writeSavedKey(folder, key)
 	end)
 end
 
-
--- แปลงเวลา ISO (จาก Supabase) -> unix timestamp
 local function isoToTs(str)
 	if type(str) ~= "string" or str == "" then return nil end
 	str = str:gsub(" ", "T", 1)
@@ -1376,7 +1332,6 @@ local function isoToTs(str)
 	return ok and dt and dt.UnixTimestamp or nil
 end
 
--- 3600 -> "01:00:00" , 90000 -> "1d 01h 00m 00s"
 function Library:FormatTime(s)
 	if s == nil or s == math.huge then return T("acc_lifetime") end
 	s = math.max(0, math.floor(s))
@@ -1385,7 +1340,6 @@ function Library:FormatTime(s)
 	return string.format("%02d:%02d:%02d", h, m, sec)
 end
 
--- อายุคีย์ (นับขึ้น ไม่มีลด): <1 ชม. = นาที | <1 วัน = "1 ชั่วโมง" / "1 ชั่วโมง 30 นาที" | >=1 วัน = "30 วัน"
 function Library:FormatAge(s)
 	s = math.max(0, math.floor(s or 0))
 	local d, h, m = s // 86400, (s % 86400) // 3600, (s % 3600) // 60
@@ -1394,7 +1348,6 @@ function Library:FormatAge(s)
 	return T("age_m", m)
 end
 
--- เหลือเวลากี่วินาที (nil = ยังไม่ผ่านคีย์, math.huge = ตลอดชีพ) ใช้ตัดสินหมดอายุจริง
 function Library:GetKeyRemaining()
 	local k = self.KeyInfo
 	if not (k and k.ok) then return nil end
@@ -1402,7 +1355,6 @@ function Library:GetKeyRemaining()
 	return math.max(0, k.expireClock - os.clock())
 end
 
--- เวลาที่เหลือ "สำหรับแสดงผล" (นับสด) -- คีย์ never=true ไม่ถูกตัดแม้เวลาถึง 0
 function Library:GetDisplayRemaining()
 	local k = self.KeyInfo
 	if not (k and k.ok) then return nil end
@@ -1420,7 +1372,6 @@ end
 function Library:_rpc(cfg, fn, body)
 	local url = (tostring(cfg.SupabaseUrl or ""):gsub("/+$", ""))
 	local headers = { ["Content-Type"] = "application/json", ["apikey"] = cfg.SupabaseKey }
-	-- คีย์แบบเก่า (eyJ...) เป็น JWT ส่งใน Authorization ได้ / คีย์ใหม่ (sb_publishable_...) ไม่ใช่ JWT ห้ามส่ง
 	if not tostring(cfg.SupabaseKey):find("^sb_") then
 		headers["Authorization"] = "Bearer " .. tostring(cfg.SupabaseKey)
 	end
@@ -1437,15 +1388,12 @@ function Library:_rpc(cfg, fn, body)
 	return data
 end
 
--- เติมค่าที่ขาดจาก Library.Supabase (cfg.SupabaseUrl / SupabaseKey ใส่ทับได้ถ้าต้องการ)
 local function resolveKeyCfg(cfg)
 	cfg.SupabaseUrl = cfg.SupabaseUrl or Library.Supabase.Url
 	cfg.SupabaseKey = cfg.SupabaseKey or Library.Supabase.Key
 	return cfg
 end
 
--- ดึงค่า plan ของคีย์ (text) : ลอง RPC get_plan ก่อน แล้วค่อยอ่านตรงจากตาราง
--- คืน plan หรือ nil + ข้อความ error (เอาไว้ debug)
 function Library:FetchPlan(key)
 	key = tostring(key or "")
 	if key == "" then return nil, "empty key" end
@@ -1487,7 +1435,6 @@ function Library:FetchPlan(key)
 	return tostring(v)
 end
 
--- ตรวจ + ผูกคีย์กับผู้ใช้ (ครั้งแรกจะบันทึกชื่อผู้ใช้ลง Supabase และเริ่มนับเวลา)
 function Library:VerifyKey(cfg, key)
 	key = (tostring(key or ""):gsub("%s+", ""))
 	if key == "" then return { ok = false, reason = "empty", message = "กรุณาใส่คีย์ก่อน" } end
@@ -1502,12 +1449,10 @@ function Library:VerifyKey(cfg, key)
 	if not data then
 		return { ok = false, reason = "network", message = "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (" .. tostring(err) .. ")" }
 	end
-	-- enabled = false -> เซิร์ฟเวอร์ปิดคีย์ไว้ (เปิด/ปิดได้ตลอดเวลาจากตาราง)
 	if data.enabled == false or data.reason == "disabled" then
 		return { ok = false, reason = "disabled", message = T("r_disabled") }
 	end
 	if data.ok then
-		-- never = true -> คีย์ไม่หมดอายุ (ไม่สนค่า remaining / expires_at)
 		local never = data.never == true
 		local rem = (not never) and tonumber(data.remaining) or nil
 		return {
@@ -1520,7 +1465,6 @@ function Library:VerifyKey(cfg, key)
 	return { ok = false, reason = data.reason, message = I18N[Library.Lang]["r_" .. tostring(data.reason)] or T("r_fail") }
 end
 
--- เฝ้าคีย์ระหว่างใช้งาน: หมดเวลา/ถูกยกเลิก -> เฟดปิด UI
 function Library:_keyWatch(cfg)
 	self._keyWatchId = (self._keyWatchId or 0) + 1
 	local id = self._keyWatchId
@@ -1588,7 +1532,6 @@ function Library:KeySystem(cfg)
 	corner(Card, 14)
 	local CStroke = stroke(Card, "Accent", 0.2)
 	CStroke.Thickness = 1.6
-	-- ขอบรุ้ง เปลี่ยนสีอัตโนมัติ (ไล่สีหมุนรอบการ์ด)
 	CStroke:SetAttribute("Bind_Color", nil)
 	CStroke.Color = Color3.new(1, 1, 1)
 	local rainbow = {}
@@ -1596,7 +1539,6 @@ function Library:KeySystem(cfg)
 	local RainbowGrad = new("UIGradient", { Color = ColorSequence.new(rainbow), Parent = CStroke })
 	local CScale = new("UIScale", { Scale = 0.9, Parent = Card })
 
-	-- หัวการ์ด: โลโก้เล็ก + ชื่อ + คำอธิบายใต้ชื่อ
 	local img = tostring(cfg.Image or cfg.Icon or "")
 	if tonumber(img) then img = "rbxassetid://" .. img end
 	local hx = 20
@@ -1608,7 +1550,6 @@ function Library:KeySystem(cfg)
 	label(Card, { Text = tostring(cfg.Title or "Key System"), Font = Enum.Font.GothamBold, TextSize = 16, TextTruncate = Enum.TextTruncate.AtEnd, Position = UDim2.fromOffset(hx, 13), Size = UDim2.new(1, -(hx + 44), 0, 20) }, "Text")
 	label(Card, { Text = tostring(cfg.Subtitle or "Key System"), TextSize = 11, Position = UDim2.fromOffset(hx, 33), Size = UDim2.new(1, -(hx + 44), 0, 14) }, "SubText")
 
-	-- ซ้าย: ช่องกรอก + ปุ่ม + สถานะ | ขวา: ข้อความอธิบาย
 	local colW = wide and 240 or (cw - 40)
 	local Input = new("TextBox", {
 		Text = "", PlaceholderText = "key", Font = Enum.Font.GothamMedium, TextSize = 13, ClearTextOnFocus = false,
@@ -1664,7 +1605,6 @@ function Library:KeySystem(cfg)
 	CloseX.MouseEnter:Connect(function() tween(CloseX, { TextColor3 = Theme.Error }, 0.12) end)
 	CloseX.MouseLeave:Connect(function() tween(CloseX, { TextColor3 = Theme.Text }, 0.12) end)
 
-	-- ----- logic -----
 	local busy, finished, result = false, false, false
 	local done = Instance.new("BindableEvent")
 	local hb = RunService.Heartbeat:Connect(function()
@@ -1750,12 +1690,10 @@ function Library:KeySystem(cfg)
 		end)
 	end
 
-	-- intro: จางเข้า + เด้งขึ้น
 	tween(Backdrop, { GroupTransparency = 0 }, 0.3)
 	tween(CScale, { Scale = 1 }, 0.4, Enum.EasingStyle.Back)
 	tween(Card, { Position = UDim2.fromScale(0.5, 0.5) }, 0.4, Enum.EasingStyle.Quint)
 
-	-- มีคีย์ที่เคยบันทึกไว้ -> ตรวจให้อัตโนมัติ
 	local saved = cfg.SaveKey ~= false and readSavedKey(self.Folder) or nil
 	if saved then
 		Input.Text = saved
@@ -1771,12 +1709,9 @@ function Library:KeySystem(cfg)
 	return result, self.KeyInfo
 end
 
-----------------------------------------------------------------------
--- ACCOUNT PAGE (สไตล์หน้า Account: ผู้ใช้ / คีย์ / เวลาที่เหลือ / ออกจากระบบ)
-----------------------------------------------------------------------
 function WindowMT:_buildAccount(config)
 	local tab = self:CreateTab(T("tab_account"), config.AccountIcon, 9990, true)
-	tab.Hidden = true -- ไม่โชว์ในแถบแท็บ เปิดจากการกดโปรไฟล์ด้านล่าง
+	tab.Hidden = true
 	tab.Button.Visible = false
 	local page = tab.Page
 	local info = Library.KeyInfo
@@ -1789,7 +1724,6 @@ function WindowMT:_buildAccount(config)
 	local function divider()
 		new("Frame", { Size = UDim2.new(1, 0, 0, 1), BackgroundTransparency = 0.6, BorderSizePixel = 0, LayoutOrder = nextO(), Parent = page }, { BackgroundColor3 = "Stroke" })
 	end
-	-- ช่องข้อมูล: หัวข้อเล็ก + ค่าตัวหนา (+ บรรทัดย่อย)
 	local function cell(parent, right, title, value, sub)
 		local f = new("Frame", { Size = UDim2.new(0.5, -6, 1, 0), Position = right and UDim2.new(0.5, 6, 0, 0) or UDim2.new(), BackgroundTransparency = 1, Parent = parent })
 		local al = right and Enum.TextXAlignment.Right or Enum.TextXAlignment.Left
@@ -1801,8 +1735,6 @@ function WindowMT:_buildAccount(config)
 		end
 		return v, sl, f
 	end
-
-	-- แถว 1: ผู้ใช้ | User ID
 	local r1 = row(56)
 	local nameV = cell(r1, false, T("acc_account"), LocalPlayer.DisplayName .. "  (@" .. LocalPlayer.Name .. ")")
 	nameV.Position, nameV.Size = UDim2.fromOffset(26, 16), UDim2.new(1, -26, 0, 18)
@@ -1813,16 +1745,12 @@ function WindowMT:_buildAccount(config)
 	end)
 	cell(r1, true, T("acc_userid"), LocalPlayer.UserId)
 	divider()
-
-	-- แถว 2: คีย์ (ปิดบางส่วน) + อายุการใช้คีย์ (วัน/ชม.) | อายุบัญชี Roblox
 	local r2 = row(56)
 	local maskedKey = "-"
 	if info and info.key then maskedKey = info.key:sub(1, math.min(8, #info.key)) .. string.rep("*", 8) end
 	cell(r2, false, T("acc_key"), maskedKey)
 	local ageV = cell(r2, true, T("acc_keyage"), "-")
 	divider()
-
-	-- แถว 3: แพลน (ดึงจากตาราง Supabase) | เวลาที่เหลือ (นับสด)
 	local r3 = row(60)
 	local plan, planSub = T("acc_nolicense"), T("acc_nokeysys")
 	if info then
@@ -1866,7 +1794,6 @@ function WindowMT:_buildAccount(config)
 			local kp = k and k.plan
 			if kp and planV.Text ~= kp then planV.Text = kp end
 
-			-- เวลาที่เหลือ (นับสดทุกวินาที) / คีย์ never = ไม่หมดอายุ แสดงเวลาใช้งานแทน
 			local rem = Library:GetDisplayRemaining()
 			if rem == nil then
 				remV.Text, remSub.Text = "-", ""
@@ -1881,9 +1808,7 @@ function WindowMT:_buildAccount(config)
 				remV.TextColor3 = (not (k and k.never) and rem < 600) and Theme.Error or Theme.Text
 			end
 
-			-- คีย์นี้ใช้มากี่วัน/ชั่วโมง
 			if k and k.ok then
-				-- อายุสูงสุดของคีย์ (ระยะเวลาทั้งหมดที่คีย์ใช้ได้) ไม่ใช่เวลาที่ผ่านไป
 				if k._actTs == nil then k._actTs = isoToTs(k.activatedAt) or false end
 				if k._expTs == nil then k._expTs = isoToTs(k.expiresAt) or false end
 				local total = k.durationSec
@@ -1903,7 +1828,6 @@ function WindowMT:_buildAccount(config)
 	end)
 	divider()
 
-	-- แถว 4: อุปกรณ์ | Executor
 	local r4 = row(56)
 	local hw = info and info.hwid and tostring(info.hwid):sub(1, 10) or "-"
 	cell(r4, false, T("acc_device"), hw)
@@ -1912,12 +1836,10 @@ function WindowMT:_buildAccount(config)
 	cell(r4, true, T("acc_exec"), exName)
 	divider()
 
-	-- แถว 5: เวอร์ชัน | Place
 	local r5 = row(56)
 	cell(r5, false, T("acc_ver"), Library.Version)
 	cell(r5, true, T("acc_place"), game.PlaceId)
 
-	-- ออกจากระบบ (เฉพาะตอนมีคีย์)
 	if info then
 		divider()
 		local r6 = row(44)
@@ -1936,7 +1858,7 @@ function WindowMT:_buildAccount(config)
 		btn.MouseButton1Up:Connect(function() tween(sc, { Scale = 1 }, 0.14, Enum.EasingStyle.Back) end)
 		btn.MouseButton1Click:Connect(function()
 			writeSavedKey(Library._keyFolder or Library.Folder, "")
-			Library.KeyInfo = nil -- หยุดตัวเฝ้าคีย์
+			Library.KeyInfo = nil
 			Library:Notify("Sign Out", T("signout_notify"), 2)
 			task.delay(0.9, function()
 				local wins = { table.unpack(Library.Windows) }
@@ -1970,7 +1892,6 @@ function Library:CreateWindow(config)
 	self:_readConfig()
 	self:_loadLang()
 
-	-- ธีม/สี/ปุ่มเปิดเมนู: ค่าที่บันทึกไว้ชนะค่าในสคริปต์ (กันหน้าจอกะพริบ)
 	if type(self._config["ui.accent"]) == "string" then self._accent = fromHex(self._config["ui.accent"]) end
 	self:_loadPreset(resolveTheme(self._config["ui.theme"]) or resolveTheme(config.Theme) or "blue")
 	local toggleKey = config.ToggleKey or Enum.KeyCode.RightControl
@@ -1986,18 +1907,15 @@ function Library:CreateWindow(config)
 	local Window = setmetatable({ ScreenGui = ScreenGui, Tabs = {}, Flags = {}, ToggleKey = toggleKey, _compact = false, _cfg = config }, WindowMT)
 	table.insert(self.Windows, Window)
 
-	-- Notification holder
 	NotifHolder = new("Frame", { Name = "Notifications", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 16), Size = UDim2.new(0, 260, 1, -32), BackgroundTransparency = 1, Parent = ScreenGui })
 	new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Top, Parent = NotifHolder })
 
-	-- Tooltip
 	TooltipFrame = new("Frame", { Name = "Tooltip", BackgroundTransparency = 0.15, Visible = false, AutomaticSize = Enum.AutomaticSize.XY, ZIndex = 100, Parent = ScreenGui }, { BackgroundColor3 = "Card" })
 	corner(TooltipFrame, 5)
 	stroke(TooltipFrame, "Stroke", 0.4)
 	pad(TooltipFrame, 8, 6, 8, 6)
 	TooltipLabel = label(TooltipFrame, { Text = "", TextSize = 11, AutomaticSize = Enum.AutomaticSize.XY, ZIndex = 100 }, "Text")
 
-	-- ขนาดหน้าต่าง: ปรับอัตโนมัติตามจอ (มือถือ/PC)
 	local vp = viewport()
 	local want = config.Size or UDim2.fromOffset(680, 460)
 	local W = math.clamp(want.X.Offset, 300, math.max(300, vp.X * 0.94))
@@ -2020,7 +1938,6 @@ function Library:CreateWindow(config)
 	end)
 	Window.Main = Main
 
-	-- TOP BAR
 	local TopBar = new("Frame", { Name = "TopBar", Size = UDim2.new(1, 0, 0, 48), BackgroundTransparency = 1, ZIndex = 10, Parent = Main })
 	local Brand = new("Frame", { Size = UDim2.new(1, -130, 1, 0), Position = UDim2.fromOffset(16, 0), BackgroundTransparency = 1, ZIndex = 11, Parent = TopBar })
 	local BrandIcon = new("ImageLabel", { Size = UDim2.fromOffset(30, 30), Position = UDim2.new(0, 0, 0.5, -15), BackgroundTransparency = 1, Image = iconId, ScaleType = Enum.ScaleType.Fit, ZIndex = 12, Parent = Brand })
@@ -2045,8 +1962,6 @@ function Library:CreateWindow(config)
 	local MaxBtn = ctl("□", 12, 2, "CardHover")
 	local CloseBtn = ctl("×", 16, 3, "Error")
 
-	-- แถบลาก (pill) กลางด้านบน: ลากตรงนี้เพื่อย้ายหน้าต่าง
-	-- Anchor = เฟรมใสที่ก๊อปตำแหน่ง/ขนาด/สเกลของ Main ทุกเฟรม ที่จับอยู่ในนี้ (นอกขอบ Main ไม่โดนตัด)
 	local Anchor = new("Frame", { Name = "HandleAnchor", BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = false, Visible = false, Parent = ScreenGui })
 	local AnchorScale = new("UIScale", { Parent = Anchor })
 	local AnchorLimit = new("UISizeConstraint", { MinSize = Vector2.new(300, 300), Parent = Anchor })
@@ -2070,7 +1985,6 @@ function Library:CreateWindow(config)
 	local LineGrad = new("UIGradient", { Parent = TopLine })
 	onTheme(TopLine, function() LineGrad.Color = ColorSequence.new(Theme.Accent, Theme.Accent2) end)
 
-	-- SIDEBAR
 	local Sidebar = new("Frame", { Name = "Sidebar", Size = UDim2.new(0, 190, 1, -49), Position = UDim2.fromOffset(0, 49), BackgroundTransparency = 0.25, BorderSizePixel = 0, ClipsDescendants = true, Parent = Main }, { BackgroundColor3 = "Sidebar" })
 	corner(Sidebar, 10)
 	new("Frame", { Size = UDim2.new(0, 1, 1, 0), Position = UDim2.new(1, -1, 0, 0), BorderSizePixel = 0, BackgroundTransparency = 0.3, Parent = Sidebar }, { BackgroundColor3 = "Stroke" })
@@ -2083,7 +1997,6 @@ function Library:CreateWindow(config)
 	pad(Search, 10, 0, 10, 0)
 	Window.SearchBox = Search
 
-	-- หัวแถบเมนู (ชื่อ + ปุ่มพับ/ขยาย แบบในรูป)
 	local HeaderLbl = label(Sidebar, { Text = "Home", Font = Enum.Font.GothamBold, TextSize = 17, Position = UDim2.fromOffset(14, 8), Size = UDim2.new(1, -56, 0, 28) }, "Text")
 	local CollapseBtn = new("TextButton", {
 		Text = "‹", Font = Enum.Font.GothamBold, TextSize = 18, AutoButtonColor = false, BackgroundTransparency = 1,
@@ -2101,7 +2014,6 @@ function Library:CreateWindow(config)
 	list(TabList, 4)
 	Window.TabList = TabList
 
-	-- PROFILE
 	local Profile = new("Frame", { Size = UDim2.new(1, -20, 0, 52), Position = UDim2.new(0, 10, 1, -62), BackgroundTransparency = 0.35, Parent = Sidebar }, { BackgroundColor3 = "Card" })
 	corner(Profile, 8)
 	stroke(Profile, "Stroke", 0.4)
@@ -2134,7 +2046,6 @@ function Library:CreateWindow(config)
 		end
 	end)
 
-	-- กดโปรไฟล์ = เปิดหน้า Account
 	local ProfileBtn = new("TextButton", { Name = "ProfileButton", Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 5, Parent = Profile })
 	ProfileBtn.MouseEnter:Connect(function() tween(Profile, { BackgroundTransparency = 0.15 }, 0.12) end)
 	ProfileBtn.MouseLeave:Connect(function() tween(Profile, { BackgroundTransparency = 0.35 }, 0.15) end)
@@ -2142,7 +2053,6 @@ function Library:CreateWindow(config)
 		if Window.AccountTab then Window:SelectTab(Window.AccountTab) end
 	end)
 
-	-- CONTENT
 	local Content = new("Frame", { Name = "Content", Size = UDim2.new(1, -206, 1, -59), Position = UDim2.fromOffset(198, 54), BackgroundTransparency = 1, Parent = Main })
 	Window.Header = label(Content, { Font = Enum.Font.GothamBold, TextSize = 16, Size = UDim2.new(1, 0, 0, 28) }, "Text")
 	Window.Pages = new("Frame", { Position = UDim2.fromOffset(0, 32), Size = UDim2.new(1, 0, 1, -32), BackgroundTransparency = 1, ClipsDescendants = true, Parent = Content })
@@ -2174,7 +2084,6 @@ function Library:CreateWindow(config)
 		applyLayout()
 	end)
 
-	-- Exit modal
 	local Modal = new("Frame", { Name = "Modal", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(8, 8, 8), BackgroundTransparency = 0.45, Visible = false, ZIndex = 100, Parent = Main })
 	Window.Modal = Modal
 	local MCard = new("Frame", { Size = UDim2.fromOffset(260, 130), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 0.05, ZIndex = 101, Parent = Modal }, { BackgroundColor3 = "Background" })
@@ -2194,7 +2103,6 @@ function Library:CreateWindow(config)
 		YesBtn.Text, NoBtn.Text = T("modal_close"), T("modal_cancel")
 	end
 
-	-- ย่อ / ขยาย / ปรับขนาด
 	local isMin, isMax = false, false
 	local normalSize, lastMinPos, preMax
 	local normalPos = Main.Position
@@ -2203,7 +2111,6 @@ function Library:CreateWindow(config)
 		Text = "", Size = UDim2.fromOffset(28, 28), AnchorPoint = Vector2.new(0, 0), ClipsDescendants = true,
 		Position = UDim2.new(1, -10, 1, -10), BackgroundTransparency = 1, AutoButtonColor = false, ZIndex = 50, Visible = false, Parent = Anchor,
 	})
-	-- วงกลมใหญ่ตัดเหลือแค่เสี้ยวขวาล่าง = เส้นโค้งรับกับมุมหน้าต่าง (รัศมีมุม 10 + ห่าง 3)
 	local GripRing = new("Frame", {
 		Size = UDim2.fromOffset(32, 32), Position = UDim2.fromOffset(-16, -16), BackgroundTransparency = 1, ZIndex = 51, Parent = Grip,
 	})
@@ -2213,7 +2120,6 @@ function Library:CreateWindow(config)
 	Grip.MouseLeave:Connect(function() tween(GripStroke, { Thickness = 2.5, Transparency = 0.25, Color = Theme.SubText }, 0.18) end)
 	local sizeConstraint = Main:FindFirstChildOfClass("UISizeConstraint")
 
-	-- ที่จับลาก/ปรับขนาดอยู่นอกหน้าต่าง (ใต้หน้าต่าง + มุมขวาล่างด้านนอก) ตามหน้าต่างทุกเฟรม
 	conn(RunService.RenderStepped, function()
 		if not Main.Parent then return end
 		local shown = Main.Visible and Window._shown and Main.GroupTransparency < 0.9
@@ -2282,7 +2188,6 @@ function Library:CreateWindow(config)
 		end
 	end)
 
-	-- ตำแหน่งกึ่งกลางหน้าต่าง (พิกเซล) + บีบให้อยู่ในขอบจอเสมอ
 	local function toCenter(pos)
 		local vpz = ScreenGui.AbsoluteSize
 		return pos.X.Scale * vpz.X + pos.X.Offset, pos.Y.Scale * vpz.Y + pos.Y.Offset
@@ -2290,7 +2195,7 @@ function Library:CreateWindow(config)
 	local function clampCenter(cx, cy)
 		local vpz, s = ScreenGui.AbsoluteSize, Main.AbsoluteSize
 		local hx, hy = s.X / 2, s.Y / 2
-		local M = 10 -- ช่องว่างจากขอบจอ
+		local M = 10
 		cx = (s.X >= vpz.X - 2 * M) and vpz.X / 2 or math.clamp(cx, hx + M, vpz.X - M - hx)
 		cy = (s.Y >= vpz.Y - 30 - M) and (vpz.Y - 30) / 2 or math.clamp(cy, hy + M, vpz.Y - 30 - hy)
 		return cx, cy
@@ -2307,9 +2212,8 @@ function Library:CreateWindow(config)
 		end)
 	end
 	DragHit.InputBegan:Connect(beginMove)
-	TopBar.InputBegan:Connect(beginMove) -- ลากจากพื้นที่ว่างบนหัวหน้าต่างได้ (ปุ่ม -, □, × ยังกดได้ปกติ)
+	TopBar.InputBegan:Connect(beginMove)
 
-	-- ปรับขนาดจากมุมขวาล่าง: ขยายออกพร้อมกันทุกมุม (จุดกึ่งกลางอยู่ที่เดิม)
 	Grip.InputBegan:Connect(function(input)
 		if not isPress(input) or isMin or isMax then return end
 		local startMouse, startSize = input.Position, Main.AbsoluteSize
@@ -2325,7 +2229,6 @@ function Library:CreateWindow(config)
 		end)
 	end)
 
-	-- ตัวอักษรปรับตามขนาดหน้าต่าง: ขยาย = ใหญ่ขึ้น / หด = เล็กลง (อ่านง่ายทุกขนาด)
 	local textScale = 1
 	local function styleText(o)
 		if o:IsA("TextLabel") or o:IsA("TextButton") or o:IsA("TextBox") then
@@ -2336,7 +2239,7 @@ function Library:CreateWindow(config)
 	end
 	local function applyTextScale(force)
 		local sz = Main.Size
-		if sz.Y.Offset < 200 then return end -- ตอนย่อหน้าต่างไม่ปรับ
+		if sz.Y.Offset < 200 then return end
 		local f = math.clamp(math.min(sz.X.Offset / 680, sz.Y.Offset / 460), 0.8, 1.3)
 		f = math.floor(f * 20 + 0.5) / 20
 		if f == textScale and not force then return end
@@ -2346,7 +2249,6 @@ function Library:CreateWindow(config)
 	conn(Main.DescendantAdded, styleText)
 	conn(Main:GetPropertyChangedSignal("Size"), function() applyTextScale(false) end)
 
-	-- ปุ่มเปิด/ปิดเมนูบนคีย์บอร์ด + ปุ่มลอยสำหรับมือถือ
 	conn(UserInputService.InputBegan, function(input, gpe)
 		if gpe or Library._listening then return end
 		if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Window.ToggleKey then Window:Toggle() end
@@ -2369,7 +2271,6 @@ function Library:CreateWindow(config)
 		Window.SettingsTab = Window:_buildSettings()
 	end
 	applyTextScale(true)
-	-- ถ้าไม่มีแท็บผู้ใช้เลย ให้เปิด Settings เป็นหน้าแรก
 	task.defer(function()
 		if not Window.ActiveTab then
 			for _, t in ipairs(Window.Tabs) do
@@ -2378,14 +2279,12 @@ function Library:CreateWindow(config)
 		end
 	end)
 
-	-- Animation ตอนเปิด UI (เรียกหลังหน้าโหลดจบ)
 	Window.Loaded = false
 	local function openUI()
 		Window.Loaded = true
 		Main.Visible = true
 		tween(Main, { GroupTransparency = 0 }, 0.25)
 		tween(MainScale, { Scale = 1 }, 0.3, Enum.EasingStyle.Back)
-		-- เส้นขอบ/เส้นหัวขยับเบาๆ
 		conn(RunService.Heartbeat, function()
 			if not Main.Visible then return end
 			local t = os.clock()
@@ -2393,8 +2292,6 @@ function Library:CreateWindow(config)
 			LineGrad.Offset = Vector2.new(math.sin(t * 0.8) * 0.35, 0)
 		end)
 	end
-
-	-- หน้าโหลด (Loading Screen) เป็นรูป: config.Loading = false เพื่อปิด
 	if config.Loading == false then
 		openUI()
 		return Window
@@ -2405,7 +2302,6 @@ function Library:CreateWindow(config)
 	local loadTitle = tostring(config.LoadingTitle or titleText)
 	local loadMin = tonumber(config.LoadingTime) or 1.8
 
-	-- หน้าโหลดสไตล์ Rayfield: โลโก้ + ชื่อ กลางจอ ไม่มีกรอบ เห็นเกมข้างหลัง
 	local Loader = new("CanvasGroup", {
 		Name = "LoadingScreen", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0,
 		ZIndex = 500, GroupTransparency = 1, Parent = ScreenGui,
@@ -2431,7 +2327,6 @@ function Library:CreateWindow(config)
 	}, "Text")
 	new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1.2, Transparency = 0.75, Parent = LTitle })
 
-	-- แถบโหลดบางๆ (ปิดไว้ เปิดด้วย LoadingBar = true)
 	local showBar = config.LoadingBar == true
 	local LTrack = new("Frame", {
 		Size = UDim2.fromOffset(180, 3), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.5, math.floor(tSize * 0.75) + 22),
@@ -2451,7 +2346,6 @@ function Library:CreateWindow(config)
 	task.spawn(function()
 		local t0 = os.clock()
 
-		-- 1) โหลดรูป/ข้อมูลจริง (มี timeout กันค้าง)
 		setProgress(0.25)
 		local done = false
 		task.spawn(function()
@@ -2460,12 +2354,9 @@ function Library:CreateWindow(config)
 		end)
 		while not done and os.clock() - t0 < 6 do task.wait(0.05) end
 
-		-- 2) รอสคริปต์ผู้ใช้สร้างแท็บ/ปุ่มให้เสร็จ
 		setProgress(0.6)
 		task.wait()
 		task.wait()
-
-		-- 3) ครบเวลาขั้นต่ำ
 		setProgress(0.9)
 		local left = loadMin - (os.clock() - t0)
 		if left > 0 then task.wait(left) end
@@ -2473,7 +2364,6 @@ function Library:CreateWindow(config)
 		setProgress(1)
 		task.wait(0.3)
 
-		-- โลโก้จางออก แล้วค่อยเข้า UI
 		if not Loader.Parent then return end
 		local fade = tween(Loader, { GroupTransparency = 1 }, 0.4)
 		tween(LScale, { Scale = 1.08 }, 0.4)
@@ -2485,7 +2375,6 @@ function Library:CreateWindow(config)
 	return Window
 end
 
--- ถ้าเคยรันสคริปต์นี้ไว้แล้ว ให้ปิดตัวเก่าก่อน กันซ้อน
 local env = (type(getgenv) == "function" and getgenv()) or _G
 if env.__MurazakiLibrary and env.__MurazakiLibrary ~= Library then
 	pcall(function() env.__MurazakiLibrary:Unload() end)
