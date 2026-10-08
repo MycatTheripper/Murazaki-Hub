@@ -2039,7 +2039,7 @@ function Library:CreateWindow(config)
 	local AnchorLimit = new("UISizeConstraint", { MinSize = Vector2.new(300, 300), Parent = Anchor })
 	local DragHit = new("TextButton", {
 		Name = "DragHandle", Text = "", AutoButtonColor = false, BackgroundTransparency = 1,
-		Size = UDim2.fromOffset(120, 22), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 6), ZIndex = 30, Parent = Anchor,
+		Size = UDim2.fromOffset(120, 22), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 8), ZIndex = 30, Parent = Anchor,
 	})
 	local DragPill = new("Frame", {
 		Size = UDim2.fromOffset(48, 3), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2),
